@@ -109,6 +109,18 @@ return [
             // 'trust_server_certificate' => env('DB_TRUST_SERVER_CERTIFICATE', 'false'),
         ],
 
+        'mongodb' => [
+            'driver' => 'mongodb',
+            'host' => env('DB_MONGODB_HOST', '127.0.0.1'),
+            'port' => env('DB_MONGODB_PORT', 27017),
+            'database' => env('DB_MONGODB_DATABASE', 'school_bus_mongo'),
+            'username' => env('DB_MONGODB_USERNAME'),
+            'password' => env('DB_MONGODB_PASSWORD'),
+            'options' => [
+                'database' => env('DB_MONGODB_AUTH_DATABASE', 'admin'),
+            ],
+        ],
+
     ],
 
     /*
