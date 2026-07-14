@@ -9,7 +9,8 @@
         "laravel/framework": "^11.0",
         "laravel/sanctum": "^4.0",
         "laravel/tinker": "^2.9",
-        "mongodb/laravel-mongodb": "^5.8"
+        "mongodb/laravel-mongodb": "^5.8",
+        "predis/predis": "^3.5"
     },
     "require-dev": {
         "fakerphp/faker": "^1.23",

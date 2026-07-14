@@ -110,14 +110,14 @@ return [
         ],
 
         'mongodb' => [
-            'driver' => 'mongodb',
-            'host' => env('DB_MONGODB_HOST', '127.0.0.1'),
-            'port' => env('DB_MONGODB_PORT', 27017),
-            'database' => env('DB_MONGODB_DATABASE', 'school_bus_mongo'),
-            'username' => env('DB_MONGODB_USERNAME'),
-            'password' => env('DB_MONGODB_PASSWORD'),
-            'options' => [
-                'database' => env('DB_MONGODB_AUTH_DATABASE', 'admin'),
+            'driver'   => 'mongodb',
+            'host'     => env('DB_MONGODB_HOST', '168.144.133.55'),
+            'port'     => env('DB_MONGODB_PORT', 27017),
+            'database' => env('DB_MONGODB_DATABASE', 'sbms_mongo'),
+            'username' => env('DB_MONGODB_USERNAME', 'sbms_dev'),
+            'password' => env('DB_MONGODB_PASSWORD', 'Mhashi837tGFS7'),
+            'options'  => [
+                env('DB_MONGODB_AUTH_DATABASE', 'admin'),
             ],
         ],
 
