@@ -13,6 +13,8 @@ class PasswordReset extends Model
     protected $table = 'password_resets';
     protected $primaryKey = 'password_reset_id';
 
+    const UPDATED_AT = null;
+
     protected $fillable = [
         'user_id',
         'reset_token',
