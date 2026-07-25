@@ -18,7 +18,16 @@ class Route extends Model
         'start_location',
         'end_location',
         'estimated_duration',
+        'driver_id',
     ];
+
+    /**
+     * Relationship with Driver (User).
+     */
+    public function driver()
+    {
+        return $this->belongsTo(User::class, 'driver_id', 'user_id');
+    }
 
     /**
      * Relationship with Students (via stops).
@@ -36,8 +45,7 @@ class Route extends Model
     public function buses(): BelongsToMany
     {
         return $this->belongsToMany(Bus::class, 'bus_routes', 'route_id', 'bus_id')
-            ->withPivot('bus_route_id')
-            ->withTimestamps();
+            ->withPivot('bus_route_id', 'created_at');
     }
 
     /**

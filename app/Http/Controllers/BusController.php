@@ -13,7 +13,7 @@ class BusController extends Controller
      */
     public function index()
     {
-        $buses = Bus::with('documents')->get();
+        $buses = Bus::with(['documents', 'routes.driver', 'assignments.driver.user'])->get();
 
         return response()->json($buses);
     }

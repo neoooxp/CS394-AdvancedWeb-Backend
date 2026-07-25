@@ -105,7 +105,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // -------------------------------------------------------------------
     // 💰 Domain F (cont.): Financial Tracking & Billing
     // -------------------------------------------------------------------
+    Route::get('/billing/fee-structures', [BillingController::class, 'getFeeStructures']);
     Route::post('/billing/fee-structures', [BillingController::class, 'createFeeStructure']);
+    Route::put('/billing/fee-structures/{id}', [BillingController::class, 'updateFeeStructure']);
+    Route::post('/billing/assign-fee', [BillingController::class, 'assignFeeStructure']);
+    Route::get('/billing/invoices', [BillingController::class, 'getInvoices']);
+    Route::patch('/billing/invoices/{id}/status', [BillingController::class, 'updateInvoiceStatus']);
     Route::post('/billing/invoices/generate', [BillingController::class, 'generateInvoices']);
     Route::get('/billing/guardians/{id}/ledger', [BillingController::class, 'getLedger']);
     Route::post('/billing/payments', [BillingController::class, 'recordPayment']);

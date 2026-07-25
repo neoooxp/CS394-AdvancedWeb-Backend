@@ -14,7 +14,7 @@ class RouteController extends Controller
      */
     public function index()
     {
-        $routes = Route::with('students')->get();
+        $routes = Route::with(['students', 'driver', 'buses'])->get();
 
         return response()->json($routes);
     }

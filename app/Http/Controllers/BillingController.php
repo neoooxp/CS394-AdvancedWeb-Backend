@@ -36,6 +36,31 @@ class BillingController extends Controller
     }
 
     /**
+     * Update an existing fee structure in the fee_structure table.
+     */
+    public function updateFeeStructure(Request $request, $id)
+    {
+        $feeStructure = FeeStructure::findOrFail($id);
+
+        $request->validate([
+            'fee_name'            => 'sometimes|string',
+            'base_amount'         => 'sometimes|numeric|min:0',
+            'discount_percentage' => 'nullable|numeric|min:0|max:100',
+        ]);
+
+        $feeStructure->update($request->only([
+            'fee_name',
+            'base_amount',
+            'discount_percentage',
+        ]));
+
+        return response()->json([
+            'message'       => 'Fee structure updated successfully.',
+            'fee_structure' => $feeStructure->fresh()
+        ]);
+    }
+
+    /**
      * Iterate through all student fee assignments and generate monthly invoices.
      */
     public function generateInvoices()
@@ -131,6 +156,79 @@ class BillingController extends Controller
             'payment'     => $payment,
             'invoice'     => $invoice->fresh(),
             'total_paid'  => $totalPaid,
+        ]);
+    }
+
+    /**
+     * Return all registered fee structures.
+     */
+    public function getFeeStructures()
+    {
+        if (FeeStructure::count() === 0) {
+            FeeStructure::create(['fee_name' => 'Standard Route (Monthly)', 'base_amount' => 150.00, 'discount_percentage' => 0.00]);
+            FeeStructure::create(['fee_name' => 'Special Ed (Monthly)', 'base_amount' => 220.00, 'discount_percentage' => 0.00]);
+            FeeStructure::create(['fee_name' => 'Field Trip (Hourly)', 'base_amount' => 45.00, 'discount_percentage' => 0.00]);
+            FeeStructure::create(['fee_name' => 'Late Fee Penalty', 'base_amount' => 25.00, 'discount_percentage' => 0.00]);
+        }
+        $structures = FeeStructure::all();
+        return response()->json($structures);
+    }
+
+    /**
+     * Assign a fee structure to a target student.
+     */
+    public function assignFeeStructure(Request $request)
+    {
+        if (FeeStructure::count() === 0) {
+            FeeStructure::create(['fee_name' => 'Standard Route (Monthly)', 'base_amount' => 150.00, 'discount_percentage' => 0.00]);
+            FeeStructure::create(['fee_name' => 'Special Ed (Monthly)', 'base_amount' => 220.00, 'discount_percentage' => 0.00]);
+            FeeStructure::create(['fee_name' => 'Field Trip (Hourly)', 'base_amount' => 45.00, 'discount_percentage' => 0.00]);
+            FeeStructure::create(['fee_name' => 'Late Fee Penalty', 'base_amount' => 25.00, 'discount_percentage' => 0.00]);
+        }
+
+        $request->validate([
+            'student_id'       => 'required|integer|exists:students,student_id',
+            'fee_structure_id' => 'required|integer|exists:fee_structure,fee_structure_id',
+        ]);
+
+        DB::table('student_fee_assignment')->updateOrInsert(
+            [
+                'student_id' => $request->student_id,
+            ],
+            [
+                'fee_structure_id' => $request->fee_structure_id,
+            ]
+        );
+
+        return response()->json([
+            'message' => 'Fee structure assigned to student successfully.'
+        ], 200);
+    }
+
+    /**
+     * Return all invoices/payments for the Financial Overview ledger.
+     */
+    public function getInvoices()
+    {
+        $invoices = Invoice::with(['guardian.user', 'payments'])->orderBy('created_at', 'desc')->get();
+        return response()->json($invoices);
+    }
+
+    /**
+     * Update invoice payment status (Paid, Overdue, Pending, Unpaid).
+     */
+    public function updateInvoiceStatus(Request $request, $id)
+    {
+        $request->validate([
+            'status' => 'required|string|in:Paid,Overdue,Pending,Unpaid',
+        ]);
+
+        $invoice = Invoice::findOrFail($id);
+        $invoice->update(['status' => $request->status]);
+
+        return response()->json([
+            'message' => 'Invoice status updated successfully.',
+            'invoice' => $invoice->fresh()->load('guardian.user')
         ]);
     }
 }

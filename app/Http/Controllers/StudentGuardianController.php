@@ -30,17 +30,20 @@ class StudentGuardianController extends Controller
     public function store(Request $request)
     {
         $request->validate([
-            'first_name'        => 'required|string',
-            'last_name'         => 'required|string',
-            'gender'            => 'nullable|string',
-            'student_code'      => 'required|string|unique:students,student_code',
-            'date_of_birth'     => 'required|date',
-            'grade_level'       => 'nullable|string',
-            'pickup_add'        => 'nullable|string',
-            'dropoff_add'       => 'nullable|string',
+            'first_name'         => 'required|string',
+            'last_name'          => 'required|string',
+            'gender'             => 'nullable|string',
+            'student_code'       => 'required|string|unique:students,student_code',
+            'date_of_birth'      => 'required|date',
+            'grade_level'        => 'nullable|string',
+            'pickup_add'         => 'nullable|string',
+            'dropoff_add'        => 'nullable|string',
+            'guardian_id'        => 'nullable|integer',
+            'guardian_user_id'   => 'nullable|integer',
+            'guardian_name'      => 'nullable|string',
             'medical_conditions' => 'nullable|string',
-            'special_needs'     => 'nullable|string',
-            'emergency_notes'   => 'nullable|string',
+            'special_needs'      => 'nullable|string',
+            'emergency_notes'    => 'nullable|string',
         ]);
 
         DB::transaction(function () use ($request, &$student) {
@@ -62,11 +65,13 @@ class StudentGuardianController extends Controller
                 'special_needs'      => $request->special_needs,
                 'emergency_notes'    => $request->emergency_notes,
             ]);
+
+            $this->syncGuardianLink($student, $request);
         });
 
         return response()->json([
             'message' => 'Student created successfully.',
-            'student' => $student->load('medicalRecord')
+            'student' => $student->load(['medicalRecord', 'guardians.user'])
         ], 201);
     }
 
@@ -85,6 +90,9 @@ class StudentGuardianController extends Controller
             'pickup_add'         => 'nullable|string',
             'dropoff_add'        => 'nullable|string',
             'enrollment_status'  => 'nullable|string',
+            'guardian_id'        => 'nullable|integer',
+            'guardian_user_id'   => 'nullable|integer',
+            'guardian_name'      => 'nullable|string',
             'medical_conditions' => 'nullable|string',
             'special_needs'      => 'nullable|string',
             'emergency_notes'    => 'nullable|string',
@@ -102,12 +110,57 @@ class StudentGuardianController extends Controller
                     $request->only(['medical_conditions', 'special_needs', 'emergency_notes'])
                 );
             }
+
+            $this->syncGuardianLink($student, $request);
         });
 
         return response()->json([
             'message' => 'Student updated successfully.',
-            'student' => $student->fresh()->load('medicalRecord')
+            'student' => $student->fresh()->load(['medicalRecord', 'guardians.user'])
         ]);
+    }
+
+    /**
+     * Private helper to link guardian to student.
+     */
+    private function syncGuardianLink(Student $student, Request $request)
+    {
+        $guardianId = $request->input('guardian_id');
+
+        if (!$guardianId && $request->filled('guardian_user_id')) {
+            $user = \App\Models\User::find($request->guardian_user_id);
+            if ($user) {
+                $guardian = \App\Models\Guardian::firstOrCreate(
+                    ['user_id' => $user->user_id],
+                    ['guardian_code' => 'G-' . sprintf('%04d', $user->user_id), 'address' => 'Phnom Penh']
+                );
+                $guardianId = $guardian->guardian_id;
+            }
+        }
+
+        if (!$guardianId && $request->filled('guardian_name')) {
+            $name = trim($request->guardian_name);
+            $user = \App\Models\User::where('role', 'guardian')
+                ->where(function($q) use ($name) {
+                    $q->where(DB::raw("CONCAT(first_name, ' ', last_name)"), 'ILIKE', "%{$name}%")
+                      ->orWhere('username', 'ILIKE', "%{$name}%");
+                })->first();
+
+            if ($user) {
+                $guardian = \App\Models\Guardian::firstOrCreate(
+                    ['user_id' => $user->user_id],
+                    ['guardian_code' => 'G-' . sprintf('%04d', $user->user_id), 'address' => 'Phnom Penh']
+                );
+                $guardianId = $guardian->guardian_id;
+            }
+        }
+
+        if ($guardianId) {
+            StudentGuardian::updateOrCreate(
+                ['student_id' => $student->student_id],
+                ['guardian_id' => $guardianId, 'relationship_type' => 'Parent']
+            );
+        }
     }
 
     /**

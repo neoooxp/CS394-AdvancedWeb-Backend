@@ -47,8 +47,7 @@ class Bus extends Model
     public function routes(): BelongsToMany
     {
         return $this->belongsToMany(Route::class, 'bus_routes', 'bus_id', 'route_id')
-            ->withPivot('bus_route_id')
-            ->withTimestamps();
+            ->withPivot('bus_route_id', 'created_at');
     }
 
     /**
