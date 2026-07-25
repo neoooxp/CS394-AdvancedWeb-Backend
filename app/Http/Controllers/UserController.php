@@ -93,4 +93,17 @@ class UserController extends Controller
             'status'  => $user->status
         ]);
     }
+
+    /**
+     * Permanently remove a user account from the platform.
+     */
+    public function destroy($id)
+    {
+        $user = User::findOrFail($id);
+        $user->delete();
+
+        return response()->json([
+            'message' => 'User deleted successfully.',
+        ]);
+    }
 }

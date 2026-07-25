@@ -42,6 +42,31 @@ class RouteController extends Controller
     }
 
     /**
+     * Update route details (e.g., rename route).
+     */
+    public function update(Request $request, $routeId)
+    {
+        $route = Route::findOrFail($routeId);
+
+        $request->validate([
+            'route_name'         => 'sometimes|string',
+            'start_location'     => 'sometimes|string',
+            'end_location'       => 'sometimes|string',
+            'estimated_duration' => 'sometimes|integer|min:1',
+            'driver_id'          => 'sometimes|nullable|integer',
+        ]);
+
+        $route->update($request->only([
+            'route_name', 'start_location', 'end_location', 'estimated_duration', 'driver_id'
+        ]));
+
+        return response()->json([
+            'message' => 'Route updated successfully.',
+            'route'   => $route
+        ]);
+    }
+
+    /**
      * Synchronize student stop sequences for a route.
      * Replaces all existing stops for the route and re-inserts them with correct stop_order.
      */
@@ -51,7 +76,7 @@ class RouteController extends Controller
 
         $request->validate([
             'stops'               => 'required|array|min:1',
-            'stops.*.student_id'  => 'required|integer|exists:students,student_id',
+            'stops.*.student_id'  => 'nullable|integer',
             'stops.*.stop_address' => 'required|string',
             'stops.*.pickup_time' => 'nullable|string',
             'stops.*.stop_order'  => 'required|integer|min:1',
@@ -65,7 +90,7 @@ class RouteController extends Controller
             foreach ($request->stops as $stop) {
                 StudentStop::create([
                     'route_id'    => $route->route_id,
-                    'student_id'  => $stop['student_id'],
+                    'student_id'  => $stop['student_id'] ?? null,
                     'stop_address' => $stop['stop_address'],
                     'stop_order'  => $stop['stop_order'],
                 ]);
@@ -75,6 +100,26 @@ class RouteController extends Controller
         return response()->json([
             'message' => 'Route stops synchronized successfully.',
             'route'   => $route->load('students')
+        ]);
+    }
+
+    /**
+     * Delete a route and remove all associated stops.
+     */
+    public function destroy($routeId)
+    {
+        $route = Route::findOrFail($routeId);
+
+        DB::transaction(function () use ($route) {
+            // Delete associated student stops
+            StudentStop::where('route_id', $route->route_id)->delete();
+            // Delete the route
+            $route->delete();
+        });
+
+        return response()->json([
+            'message' => 'Route deleted successfully.',
+            'route_id' => $routeId
         ]);
     }
 }

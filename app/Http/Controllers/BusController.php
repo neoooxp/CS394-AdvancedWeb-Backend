@@ -47,6 +47,34 @@ class BusController extends Controller
     }
 
     /**
+     * Update mutable operational properties of a bus asset.
+     */
+    public function update(Request $request, $busId)
+    {
+        $bus = Bus::findOrFail($busId);
+
+        $request->validate([
+            'capacity'            => 'nullable|integer|min:1',
+            'mileage'             => 'nullable|integer|min:0',
+            'availability_status' => 'nullable|string',
+            'depot_location'      => 'nullable|string',
+            'model'               => 'nullable|string',
+            'manufacturer'        => 'nullable|string',
+            'year'                => 'nullable|integer|min:1900|max:2100',
+        ]);
+
+        $bus->update($request->only([
+            'capacity', 'mileage', 'availability_status',
+            'depot_location', 'model', 'manufacturer', 'year',
+        ]));
+
+        return response()->json([
+            'message' => 'Bus updated successfully.',
+            'bus'     => $bus->fresh()->load('documents'),
+        ]);
+    }
+
+    /**
      * Map time-sensitive operational document criteria to a bus.
      */
     public function storeDocument(Request $request, $busId)

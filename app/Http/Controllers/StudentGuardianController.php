@@ -17,7 +17,8 @@ class StudentGuardianController extends Controller
     {
         $students = Student::with([
             'guardians.user',
-            'medicalRecord'
+            'medicalRecord',
+            'stops'
         ])->get();
 
         return response()->json($students);
@@ -134,5 +135,26 @@ class StudentGuardianController extends Controller
             'message'    => 'Guardian assigned to student successfully.',
             'assignment' => $assignment
         ], 201);
+    }
+
+    /**
+     * Remove a student record and all associated stop/guardian relationships.
+     */
+    public function destroy($id)
+    {
+        $student = Student::findOrFail($id);
+
+        DB::transaction(function () use ($student) {
+            // Cascade delete stop associations
+            \App\Models\StudentStop::where('student_id', $student->student_id)->delete();
+            // Delete guardian links
+            StudentGuardian::where('student_id', $student->student_id)->delete();
+            // Delete the student record
+            $student->delete();
+        });
+
+        return response()->json([
+            'message' => 'Student deleted successfully.',
+        ]);
     }
 }

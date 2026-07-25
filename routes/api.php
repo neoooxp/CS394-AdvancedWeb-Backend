@@ -48,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/users', [UserController::class, 'index']);
     Route::post('/users', [UserController::class, 'store']);
     Route::put('/users/{id}', [UserController::class, 'update']);
+    Route::delete('/users/{id}', [UserController::class, 'destroy']);
     Route::patch('/users/{id}/toggle-status', [UserController::class, 'toggleStatus']);
 
     // -------------------------------------------------------------------
@@ -56,6 +57,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/students', [StudentGuardianController::class, 'index']);
     Route::post('/students', [StudentGuardianController::class, 'store']);
     Route::put('/students/{id}', [StudentGuardianController::class, 'update']);
+    Route::delete('/students/{id}', [StudentGuardianController::class, 'destroy']);
     Route::post('/students/assign-guardian', [StudentGuardianController::class, 'assignGuardian']);
 
     // -------------------------------------------------------------------
@@ -63,6 +65,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // -------------------------------------------------------------------
     Route::get('/buses', [BusController::class, 'index']);
     Route::post('/buses', [BusController::class, 'store']);
+    Route::put('/buses/{id}', [BusController::class, 'update']);
     Route::post('/buses/{id}/documents', [BusController::class, 'storeDocument']);
 
     // -------------------------------------------------------------------
@@ -77,9 +80,12 @@ Route::middleware('auth:sanctum')->group(function () {
     // -------------------------------------------------------------------
     Route::get('/routes', [RouteController::class, 'index']);
     Route::post('/routes', [RouteController::class, 'store']);
+    Route::put('/routes/{id}', [RouteController::class, 'update']);
+    Route::delete('/routes/{id}', [RouteController::class, 'destroy']);
     Route::post('/routes/{id}/stops', [RouteController::class, 'manageStops']);
 
     Route::post('/assignments/bus-route', [AssignmentController::class, 'assignBusToRoute']);
+    Route::post('/assignments/check-bus-schedule', [AssignmentController::class, 'checkBusScheduleAvailability']);
     Route::post('/assignments/driver-bus', [AssignmentController::class, 'assignDriverToBus']);
 
     // -------------------------------------------------------------------
