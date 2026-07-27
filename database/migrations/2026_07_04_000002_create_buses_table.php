@@ -21,7 +21,6 @@ return new class extends Migration
             $table->integer('year')->nullable();
             $table->integer('mileage')->default(0);
             $table->string('availability_status')->default('Available');
-            $table->string('depot_location')->nullable();
             $table->timestamps();
         });
     }

@@ -17,6 +17,8 @@ class AuthController extends Controller
         $request->validate([
             'email' => 'required|email',
             'password' => 'required|string',
+            'portal' => 'nullable|string',
+            'role' => 'nullable|string',
         ]);
 
         $user = User::where('email', $request->email)->first();
@@ -30,6 +32,27 @@ class AuthController extends Controller
         if (!$user->status) {
             return response()->json([
                 'message' => 'Your account has been disabled.'
+            ], 403);
+        }
+
+        // Validate target portal / role access
+        $targetPortal = strtolower($request->input('portal', $request->input('role', '')));
+
+        if ($targetPortal === 'admin') {
+            if ($user->role !== 'admin') {
+                return response()->json([
+                    'message' => 'Access denied. Only administrators can log in to the admin portal.'
+                ], 403);
+            }
+        } elseif ($targetPortal === 'driver') {
+            if ($user->role !== 'driver') {
+                return response()->json([
+                    'message' => 'Access denied. Admins and non-driver users cannot log in to the driver portal.'
+                ], 403);
+            }
+        } elseif (!empty($targetPortal) && $user->role !== $targetPortal) {
+            return response()->json([
+                'message' => "Access denied. Your account role ({$user->role}) is not authorized for this portal."
             ], 403);
         }
 

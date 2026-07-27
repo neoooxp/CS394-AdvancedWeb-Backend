@@ -13,11 +13,20 @@ class DriverScheduleController extends Controller
      */
     public function getSchedule(Request $request)
     {
-        $request->validate([
-            'driver_id' => 'required|integer|exists:drivers,id',
-        ]);
+        $driverId = $request->query('driver_id') ?? $request->user()?->user_id;
 
-        $schedules = DriverSchedule::where('driver_id', $request->driver_id)
+        if (!$driverId) {
+            return response()->json([]);
+        }
+
+        // Check if driver ID matches drivers.id or drivers.user_id
+        $driver = Driver::where('id', $driverId)
+            ->orWhere('user_id', $driverId)
+            ->first();
+
+        $targetDriverId = $driver ? $driver->id : $driverId;
+
+        $schedules = DriverSchedule::where('driver_id', $targetDriverId)
             ->orderBy('shift_start_time')
             ->get();
 
@@ -30,19 +39,28 @@ class DriverScheduleController extends Controller
     public function toggleAvailability(Request $request)
     {
         $request->validate([
-            'driver_id'    => 'required|integer|exists:drivers,id',
-            'is_available' => 'required|in:0,1',
+            'driver_id'    => 'nullable|integer',
+            'is_available' => 'required',
         ]);
 
+        $driverId = $request->driver_id ?? $request->user()?->user_id;
+
+        $driver = Driver::where('id', $driverId)
+            ->orWhere('user_id', $driverId)
+            ->first();
+
+        $targetDriverId = $driver ? $driver->id : $driverId;
+
         // Update the most recent schedule row for this driver
-        $schedule = DriverSchedule::where('driver_id', $request->driver_id)
+        $schedule = DriverSchedule::where('driver_id', $targetDriverId)
             ->latest()
             ->first();
 
         if (!$schedule) {
             return response()->json([
-                'message' => 'No schedule found for this driver.'
-            ], 404);
+                'message' => 'No schedule found for this driver.',
+                'is_available' => (bool)$request->is_available
+            ]);
         }
 
         $schedule->update([
@@ -55,3 +73,4 @@ class DriverScheduleController extends Controller
         ]);
     }
 }
+

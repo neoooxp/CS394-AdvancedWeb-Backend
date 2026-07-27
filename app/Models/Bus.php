@@ -22,7 +22,6 @@ class Bus extends Model
         'year',
         'mileage',
         'availability_status',
-        'depot_location',
     ];
 
     /**

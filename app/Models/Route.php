@@ -55,4 +55,12 @@ class Route extends Model
     {
         return $this->hasMany(AttendanceReport::class, 'route_id', 'route_id');
     }
+
+    /**
+     * Relationship with StudentStops.
+     */
+    public function stops(): HasMany
+    {
+        return $this->hasMany(StudentStop::class, 'route_id', 'route_id')->orderBy('stop_order');
+    }
 }

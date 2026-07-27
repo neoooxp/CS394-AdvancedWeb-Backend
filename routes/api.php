@@ -72,6 +72,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // 🔧 Domain C (cont.): Maintenance Operations (MongoDB + Hybrid)
     // -------------------------------------------------------------------
     Route::get('/maintenance/pending', [MaintenanceController::class, 'getPendingRequests']);
+    Route::get('/maintenance/requests', [MaintenanceController::class, 'getPendingRequests']);
     Route::post('/maintenance/requests', [MaintenanceController::class, 'storeRequest']);
     Route::post('/maintenance/requests/{mongo_id}/resolve', [MaintenanceController::class, 'resolveRequest']);
 

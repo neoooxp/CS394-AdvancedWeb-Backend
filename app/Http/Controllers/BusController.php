@@ -32,12 +32,11 @@ class BusController extends Controller
             'year'                => 'nullable|integer|min:1900|max:2100',
             'mileage'             => 'nullable|integer|min:0',
             'availability_status' => 'nullable|string',
-            'depot_location'      => 'nullable|string',
         ]);
 
         $bus = Bus::create($request->only([
             'bus_number', 'plate_number', 'capacity', 'model',
-            'manufacturer', 'year', 'mileage', 'availability_status', 'depot_location'
+            'manufacturer', 'year', 'mileage', 'availability_status'
         ]));
 
         return response()->json([
@@ -57,7 +56,6 @@ class BusController extends Controller
             'capacity'            => 'nullable|integer|min:1',
             'mileage'             => 'nullable|integer|min:0',
             'availability_status' => 'nullable|string',
-            'depot_location'      => 'nullable|string',
             'model'               => 'nullable|string',
             'manufacturer'        => 'nullable|string',
             'year'                => 'nullable|integer|min:1900|max:2100',
@@ -65,7 +63,7 @@ class BusController extends Controller
 
         $bus->update($request->only([
             'capacity', 'mileage', 'availability_status',
-            'depot_location', 'model', 'manufacturer', 'year',
+            'model', 'manufacturer', 'year',
         ]));
 
         return response()->json([

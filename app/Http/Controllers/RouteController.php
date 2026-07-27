@@ -14,7 +14,7 @@ class RouteController extends Controller
      */
     public function index()
     {
-        $routes = Route::with(['students', 'driver', 'buses'])->get();
+        $routes = Route::with(['students', 'driver', 'buses', 'stops.student'])->get();
 
         return response()->json($routes);
     }
@@ -29,15 +29,16 @@ class RouteController extends Controller
             'start_location'     => 'required|string',
             'end_location'       => 'required|string',
             'estimated_duration' => 'required|integer|min:1',
+            'driver_id'          => 'nullable|integer',
         ]);
 
         $route = Route::create($request->only([
-            'route_name', 'start_location', 'end_location', 'estimated_duration'
+            'route_name', 'start_location', 'end_location', 'estimated_duration', 'driver_id'
         ]));
 
         return response()->json([
             'message' => 'Route created successfully.',
-            'route'   => $route
+            'route'   => $route->load(['driver', 'buses'])
         ], 201);
     }
 
@@ -62,7 +63,7 @@ class RouteController extends Controller
 
         return response()->json([
             'message' => 'Route updated successfully.',
-            'route'   => $route
+            'route'   => $route->load(['driver', 'students', 'buses', 'stops'])
         ]);
     }
 
@@ -88,9 +89,15 @@ class RouteController extends Controller
 
             // Re-insert stops with explicit stop_order
             foreach ($request->stops as $stop) {
+                $studentId = $stop['student_id'] ?? null;
+                // Verify if studentId exists in students table before inserting to prevent foreign key violations
+                if ($studentId && !\App\Models\Student::where('student_id', $studentId)->exists()) {
+                    $studentId = null;
+                }
+
                 StudentStop::create([
                     'route_id'    => $route->route_id,
-                    'student_id'  => $stop['student_id'] ?? null,
+                    'student_id'  => $studentId,
                     'stop_address' => $stop['stop_address'],
                     'stop_order'  => $stop['stop_order'],
                 ]);
@@ -99,7 +106,7 @@ class RouteController extends Controller
 
         return response()->json([
             'message' => 'Route stops synchronized successfully.',
-            'route'   => $route->load('students')
+            'route'   => $route->load(['students', 'stops', 'stops.student'])
         ]);
     }
 

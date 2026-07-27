@@ -17,6 +17,7 @@ return new class extends Migration
             $table->string('start_location');
             $table->string('end_location');
             $table->integer('estimated_duration');
+            $table->unsignedBigInteger('driver_id')->nullable();
             $table->timestamps();
         });
     }

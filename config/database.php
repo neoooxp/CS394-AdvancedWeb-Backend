@@ -111,13 +111,14 @@ return [
 
         'mongodb' => [
             'driver'   => 'mongodb',
-            'host'     => env('DB_MONGODB_HOST', '168.144.133.55'),
+            'dsn'      => env('DB_MONGODB_DSN'),
+            'host'     => env('DB_MONGODB_HOST', '127.0.0.1'),
             'port'     => env('DB_MONGODB_PORT', 27017),
-            'database' => env('DB_MONGODB_DATABASE', 'sbms_mongo'),
-            'username' => env('DB_MONGODB_USERNAME', 'sbms_dev'),
-            'password' => env('DB_MONGODB_PASSWORD', 'Mhashi837tGFS7'),
+            'database' => env('DB_MONGODB_DATABASE', 'admin'),
+            'username' => env('DB_MONGODB_USERNAME', 'doadmin'),
+            'password' => env('DB_MONGODB_PASSWORD', ''),
             'options'  => [
-                env('DB_MONGODB_AUTH_DATABASE', 'admin'),
+                'database' => env('DB_MONGODB_AUTH_DATABASE', 'admin'),
             ],
         ],
 
