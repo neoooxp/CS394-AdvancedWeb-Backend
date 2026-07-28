@@ -12,14 +12,15 @@ class MaintenanceController extends Controller
     /**
      * Query MongoDB for all pending maintenance requests.
      */
-    public function getPendingRequests()
+    public function getPendingRequests(Request $request)
     {
+        $perPage = $request->query('per_page', 15);
         try {
-            $pending = MaintenanceRequest::where('status', 'Pending')->get();
+            $pending = MaintenanceRequest::where('status', 'Pending')->paginate($perPage);
             return response()->json($pending);
         } catch (\Throwable $e) {
             \Log::error('MongoDB Connection Error in getPendingRequests: ' . $e->getMessage());
-            return response()->json([]);
+            return response()->json(['data' => [], 'total' => 0, 'per_page' => $perPage, 'current_page' => 1]);
         }
     }
 

@@ -70,7 +70,6 @@ class BillingController extends Controller
         $created = 0;
 
         DB::transaction(function () use ($now, $dueDate, &$created) {
-            // Pull all student->fee->guardian assignments
             $assignments = DB::table('student_fee_assignment')
                 ->join('students', 'student_fee_assignment.student_id', '=', 'students.student_id')
                 ->join('fee_structure', 'student_fee_assignment.fee_structure_id', '=', 'fee_structure.fee_structure_id')
@@ -82,16 +81,20 @@ class BillingController extends Controller
                 ->groupBy('student_guardians.guardian_id')
                 ->get();
 
-            foreach ($assignments as $assignment) {
-                Invoice::create([
-                    'guardian_id'  => $assignment->guardian_id,
-                    'invoice_date' => $now->toDateString(),
-                    'due_date'     => $dueDate->toDateString(),
-                    'total_amount' => $assignment->total_amount,
-                    'status'       => 'Unpaid',
-                ]);
-                $created++;
-            }
+            $nowStr = $now->toDateString();
+            $dueStr = $dueDate->toDateString();
+            $insertData = $assignments->map(fn($a) => [
+                'guardian_id'  => $a->guardian_id,
+                'invoice_date' => $nowStr,
+                'due_date'     => $dueStr,
+                'total_amount' => $a->total_amount,
+                'status'       => 'Unpaid',
+                'created_at'   => $now,
+                'updated_at'   => $now,
+            ])->toArray();
+
+            Invoice::insert($insertData);
+            $created = count($insertData);
         });
 
         return response()->json([
@@ -106,6 +109,7 @@ class BillingController extends Controller
     public function getLedger($guardianId)
     {
         $guardian = Guardian::with([
+            'user',
             'invoices.payments'
         ])->findOrFail($guardianId);
 
@@ -114,7 +118,7 @@ class BillingController extends Controller
         $totalPaid = $invoices->flatMap->payments->sum('amount_paid');
 
         return response()->json([
-            'guardian'   => $guardian->load('user'),
+            'guardian'   => $guardian,
             'invoices'   => $invoices,
             'total_due'  => $totalDue,
             'total_paid' => $totalPaid,
@@ -162,15 +166,16 @@ class BillingController extends Controller
     /**
      * Return all registered fee structures.
      */
-    public function getFeeStructures()
+    public function getFeeStructures(Request $request)
     {
+        $perPage = $request->query('per_page', 15);
         if (FeeStructure::count() === 0) {
             FeeStructure::create(['fee_name' => 'Standard Route (Monthly)', 'base_amount' => 150.00, 'discount_percentage' => 0.00]);
             FeeStructure::create(['fee_name' => 'Special Ed (Monthly)', 'base_amount' => 220.00, 'discount_percentage' => 0.00]);
             FeeStructure::create(['fee_name' => 'Field Trip (Hourly)', 'base_amount' => 45.00, 'discount_percentage' => 0.00]);
             FeeStructure::create(['fee_name' => 'Late Fee Penalty', 'base_amount' => 25.00, 'discount_percentage' => 0.00]);
         }
-        $structures = FeeStructure::all();
+        $structures = FeeStructure::paginate($perPage);
         return response()->json($structures);
     }
 
@@ -208,9 +213,10 @@ class BillingController extends Controller
     /**
      * Return all invoices/payments for the Financial Overview ledger.
      */
-    public function getInvoices()
+    public function getInvoices(Request $request)
     {
-        $invoices = Invoice::with(['guardian.user', 'payments'])->orderBy('created_at', 'desc')->get();
+        $perPage = $request->query('per_page', 15);
+        $invoices = Invoice::with(['guardian.user', 'payments'])->orderBy('created_at', 'desc')->paginate($perPage);
         return response()->json($invoices);
     }
 

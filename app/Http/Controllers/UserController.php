@@ -11,12 +11,13 @@ class UserController extends Controller
     /**
      * Return all platform users.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $perPage = $request->query('per_page', 15);
         $users = User::select(
             'user_id', 'role', 'username', 'first_name', 'last_name',
             'gender', 'email', 'status', 'phone_number', 'profile_picture', 'last_login', 'created_at'
-        )->get();
+        )->paginate($perPage);
 
         return response()->json($users);
     }

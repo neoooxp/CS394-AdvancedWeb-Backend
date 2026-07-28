@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Route;
+use App\Models\Student;
 use App\Models\StudentStop;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -12,9 +13,10 @@ class RouteController extends Controller
     /**
      * List all geographic paths registered in the database.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $routes = Route::with(['students', 'driver', 'buses', 'stops.student'])->get();
+        $perPage = $request->query('per_page', 15);
+        $routes = Route::with(['students', 'driver', 'buses', 'stops.student'])->paginate($perPage);
 
         return response()->json($routes);
     }
@@ -83,25 +85,32 @@ class RouteController extends Controller
             'stops.*.stop_order'  => 'required|integer|min:1',
         ]);
 
-        DB::transaction(function () use ($request, $route) {
-            // Remove all existing stops for this route
+        $requestedStudentIds = array_filter(array_column($request->stops, 'student_id'));
+        $validIds = [];
+        if (!empty($requestedStudentIds)) {
+            $validIds = Student::whereIn('student_id', $requestedStudentIds)->pluck('student_id')->toArray();
+        }
+
+        DB::transaction(function () use ($request, $route, $validIds) {
             StudentStop::where('route_id', $route->route_id)->delete();
 
-            // Re-insert stops with explicit stop_order
-            foreach ($request->stops as $stop) {
+            $stopsData = array_map(function ($stop) use ($route, $validIds) {
                 $studentId = $stop['student_id'] ?? null;
-                // Verify if studentId exists in students table before inserting to prevent foreign key violations
-                if ($studentId && !\App\Models\Student::where('student_id', $studentId)->exists()) {
+                if ($studentId && !in_array($studentId, $validIds)) {
                     $studentId = null;
                 }
 
-                StudentStop::create([
-                    'route_id'    => $route->route_id,
-                    'student_id'  => $studentId,
+                return [
+                    'route_id'     => $route->route_id,
+                    'student_id'   => $studentId,
                     'stop_address' => $stop['stop_address'],
-                    'stop_order'  => $stop['stop_order'],
-                ]);
-            }
+                    'stop_order'   => $stop['stop_order'],
+                    'created_at'   => now(),
+                    'updated_at'   => now(),
+                ];
+            }, $request->stops);
+
+            StudentStop::insert($stopsData);
         });
 
         return response()->json([

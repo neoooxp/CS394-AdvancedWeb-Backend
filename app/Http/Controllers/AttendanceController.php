@@ -14,12 +14,13 @@ class AttendanceController extends Controller
     /**
      * Return a sequential manifest of students on a route, sorted by stop_order.
      */
-    public function getRouteManifest($routeId)
+    public function getRouteManifest(Request $request, $routeId)
     {
+        $perPage = $request->query('per_page', 15);
         $stops = StudentStop::with('student')
             ->where('route_id', $routeId)
             ->orderBy('stop_order')
-            ->get();
+            ->paginate($perPage);
 
         return response()->json($stops);
     }
@@ -105,32 +106,62 @@ class AttendanceController extends Controller
 
     /**
      * Aggregate attendance data for a route and save a summary report.
+     * Also marks all "Boarded" students as "Dropped Off" so the
+     * guardian portal sees the route as completed.
      */
     public function generateReport($routeId)
     {
         $today = Carbon::today()->toDateString();
+        $now = now();
 
-        // Gather all student IDs on this route
         $studentIds = StudentStop::where('route_id', $routeId)
             ->pluck('student_id');
 
-        $attendanceRecords = DailyAttendance::where('date', $today)
+        // Single fetch of today's attendance for all students on this route
+        $records = DailyAttendance::where('date', $today)
             ->whereIn('student_id', $studentIds)
-            ->get();
+            ->get()
+            ->keyBy('student_id');
 
-        $totalPresent = $attendanceRecords->whereIn('status', ['Boarded', 'Dropped Off'])->count();
-        $totalAbsent  = $attendanceRecords->where('status', 'Absent')->count();
+        // Update Boarded → Dropped Off
+        $boardedIds = $records->where('status', 'Boarded')->keys();
+        if ($boardedIds->isNotEmpty()) {
+            DailyAttendance::where('date', $today)
+                ->whereIn('student_id', $boardedIds)
+                ->update(['status' => 'Dropped Off', 'drop_off_time' => $now]);
+        }
+
+        // Bulk insert records for students with no attendance today
+        $missingIds = $studentIds->diff($records->keys());
+        if ($missingIds->isNotEmpty()) {
+            $recordedBy = auth()->user()->user_id ?? 1;
+            $insertData = $missingIds->map(fn($id) => [
+                'student_id'    => $id,
+                'date'          => $today,
+                'status'        => 'Dropped Off',
+                'drop_off_time' => $now,
+                'recorded_by'   => $recordedBy,
+                'created_at'    => $now,
+                'updated_at'    => $now,
+            ])->values()->toArray();
+
+            DailyAttendance::insert($insertData);
+        }
+
+        // Recalculate totals (merged: in-memory updated + new inserts)
+        $totalPresent = $studentIds->count() - $records->where('status', 'Absent')->count();
+        $totalAbsent  = $records->where('status', 'Absent')->count();
 
         $report = AttendanceReport::create([
-            'route_id'     => $routeId,
-            'generated_at' => now(),
+            'route_id'      => $routeId,
+            'generated_at'  => $now,
             'total_present' => $totalPresent,
             'total_absent'  => $totalAbsent,
-            'file_path'    => 'reports/route_' . $routeId . '_' . $today . '.json',
+            'file_path'     => 'reports/route_' . $routeId . '_' . $today . '.json',
         ]);
 
         return response()->json([
-            'message' => 'Attendance report generated successfully.',
+            'message' => 'Route completed and attendance finalized successfully.',
             'report'  => $report
         ], 201);
     }

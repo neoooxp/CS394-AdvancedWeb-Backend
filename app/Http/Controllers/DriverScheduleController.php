@@ -13,10 +13,11 @@ class DriverScheduleController extends Controller
      */
     public function getSchedule(Request $request)
     {
+        $perPage = $request->query('per_page', 15);
         $driverId = $request->query('driver_id') ?? $request->user()?->user_id;
 
         if (!$driverId) {
-            return response()->json([]);
+            return response()->json(['data' => [], 'total' => 0, 'per_page' => $perPage, 'current_page' => 1]);
         }
 
         // Check if driver ID matches drivers.id or drivers.user_id
@@ -28,7 +29,7 @@ class DriverScheduleController extends Controller
 
         $schedules = DriverSchedule::where('driver_id', $targetDriverId)
             ->orderBy('shift_start_time')
-            ->get();
+            ->paginate($perPage);
 
         return response()->json($schedules);
     }

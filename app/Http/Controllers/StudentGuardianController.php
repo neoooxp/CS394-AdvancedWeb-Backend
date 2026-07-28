@@ -13,13 +13,14 @@ class StudentGuardianController extends Controller
     /**
      * Return all students with eager-loaded guardian information.
      */
-    public function index()
+    public function index(Request $request)
     {
+        $perPage = $request->query('per_page', 15);
         $students = Student::with([
             'guardians.user',
             'medicalRecord',
             'stops'
-        ])->get();
+        ])->paginate($perPage);
 
         return response()->json($students);
     }

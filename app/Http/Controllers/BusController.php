@@ -11,9 +11,10 @@ class BusController extends Controller
     /**
      * Display all active bus assets with capacity, odometer, and deployment data.
      */
-    public function index()
+    public function index(Request $request)
     {
-        $buses = Bus::with(['documents', 'routes.driver', 'assignments.driver.user'])->get();
+        $perPage = $request->query('per_page', 15);
+        $buses = Bus::with(['documents', 'routes.driver', 'assignments.driver.user'])->paginate($perPage);
 
         return response()->json($buses);
     }
