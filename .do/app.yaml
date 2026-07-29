@@ -4,22 +4,3 @@ services:
   - name: cs394-advancedweb-backend
     dockerfile_path: Dockerfile
     http_port: 80
-    instance_count: 1
-    instance_size_slug: basic-xxs
-    routes:
-      - path: /api
-    envs:
-      - key: APP_NAME
-        value: GuardianBackend
-      - key: APP_ENV
-        value: production
-      - key: APP_DEBUG
-        value: "false"
-      - key: APP_KEY
-        scope: RUN_AND_BUILD
-        type: SECRET
-      - key: DB_CONNECTION
-        value: mongodb
-      - key: DB_URI
-        scope: RUN_AND_BUILD
-        type: SECRET

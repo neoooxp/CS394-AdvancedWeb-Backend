@@ -9,6 +9,7 @@ RUN apt-get update && apt-get install -y \
     libonig-dev \
     libxml2-dev \
     libzip-dev \
+    libpq-dev \
     zip \
     unzip \
     ssl-cert \
@@ -17,7 +18,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # 2. Install standard PHP extensions
-RUN docker-php-ext-install pdo pdo_mysql mbstring exif pcntl bcmath gd zip opcache
+RUN docker-php-ext-install pdo pdo_mysql pgsql pdo_pgsql mbstring exif pcntl bcmath gd zip opcache
 
 # 3. Install and enable MongoDB PHP extension via PECL
 RUN pecl install mongodb && docker-php-ext-enable mongodb
