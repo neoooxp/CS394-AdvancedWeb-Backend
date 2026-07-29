@@ -1,7 +1,7 @@
-name: backend-api
+name: cs394-advancedweb-backend
 region: sgp
 services:
-  - name: backend-api
+  - name: cs394-advancedweb-backend
     dockerfile_path: Dockerfile
     http_port: 80
     instance_count: 1
