@@ -16,9 +16,9 @@ class DatabaseSeeder extends Seeder
         // PHASE 0: WIPE REPO STATE (Deletes child tables first)
         // ----------------------------------------------------------------
         $tables = [
-            'payments', 'ledgers', 'fee_structures', 'driver_schedules', 
-            'attendance_logs', 'student_stops', 'students_stop', 
-            'student_guardians', 'students', 'buses', 'routes', 
+            'payments', 'invoices', 'student_fee_assignment', 'ledgers', 'fee_structure', 'driver_schedules',
+            'attendance_logs', 'student_stops', 'students_stop',
+            'student_guardians', 'students', 'buses', 'routes',
             'drivers', 'guardians', 'users'
         ];
         
@@ -196,6 +196,73 @@ class DatabaseSeeder extends Seeder
         } catch (\Exception $e) {
             $this->command->warn("⚠️ MongoDB Skipped: " . $e->getMessage());
         }
+
+        // ----------------------------------------------------------------
+        // PHASE 6: INVOICES & PAYMENTS (Billing)
+        // ----------------------------------------------------------------
+        $feeId1 = DB::table('fee_structure')->insertGetId([
+            'fee_name'            => 'Standard Route (Monthly)',
+            'base_amount'         => 150.00,
+            'discount_percentage' => 0.00,
+            'created_at'          => now(),
+            'updated_at'          => now(),
+        ], 'fee_structure_id');
+
+        $feeId2 = DB::table('fee_structure')->insertGetId([
+            'fee_name'            => 'Special Ed (Monthly)',
+            'base_amount'         => 220.00,
+            'discount_percentage' => 0.00,
+            'created_at'          => now(),
+            'updated_at'          => now(),
+        ], 'fee_structure_id');
+
+        $feeId3 = DB::table('fee_structure')->insertGetId([
+            'fee_name'            => 'Field Trip (Hourly)',
+            'base_amount'         => 45.00,
+            'discount_percentage' => 0.00,
+            'created_at'          => now(),
+            'updated_at'          => now(),
+        ], 'fee_structure_id');
+
+        $feeId4 = DB::table('fee_structure')->insertGetId([
+            'fee_name'            => 'Late Fee Penalty',
+            'base_amount'         => 25.00,
+            'discount_percentage' => 0.00,
+            'created_at'          => now(),
+            'updated_at'          => now(),
+        ], 'fee_structure_id');
+
+        DB::table('student_fee_assignment')->insert([
+            'student_id'       => $studentId,
+            'fee_structure_id' => $feeId1,
+        ]);
+
+        DB::table('student_fee_assignment')->insert([
+            'student_id'       => $studentId,
+            'fee_structure_id' => $feeId3,
+        ]);
+
+        $invoiceId = DB::table('invoices')->insertGetId([
+            'guardian_id'  => $guardianId,
+            'invoice_date' => now()->startOfMonth()->toDateString(),
+            'due_date'     => now()->endOfMonth()->toDateString(),
+            'total_amount' => 195.00,
+            'status'       => 'Unpaid',
+            'created_at'   => now(),
+            'updated_at'   => now(),
+        ], 'invoice_id');
+
+        DB::table('payments')->insert([
+            'invoice_id'            => $invoiceId,
+            'payment_date'          => now(),
+            'amount_paid'           => 100.00,
+            'payment_method'        => 'Cash',
+            'transaction_reference' => 'SEED-PAY-001',
+            'created_at'            => now(),
+            'updated_at'            => now(),
+        ]);
+
+        $this->command->info("✅ Fee structures, invoice, and payment seeded.");
 
         $this->command->info("🎯 Ecosystem Seeding Complete (Phnom Penh, Cambodia)!");
     }

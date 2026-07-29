@@ -111,9 +111,21 @@ class BillingController extends Controller
         $guardian = Guardian::with([
             'user',
             'invoices.payments'
-        ])->findOrFail($guardianId);
+        ])
+        ->where('guardian_id', $guardianId)
+        ->orWhere('user_id', $guardianId)
+        ->first();
 
-        $invoices = $guardian->invoices;
+        if (!$guardian) {
+            return response()->json([
+                'guardian'   => null,
+                'invoices'   => [],
+                'total_due'  => 0,
+                'total_paid' => 0,
+            ]);
+        }
+
+        $invoices  = $guardian->invoices ?? collect();
         $totalDue  = $invoices->where('status', 'Unpaid')->sum('total_amount');
         $totalPaid = $invoices->flatMap->payments->sum('amount_paid');
 
@@ -160,6 +172,62 @@ class BillingController extends Controller
             'payment'     => $payment,
             'invoice'     => $invoice->fresh(),
             'total_paid'  => $totalPaid,
+        ]);
+    }
+
+    /**
+     * Return a single invoice with its guardian and payments.
+     */
+    public function getInvoice($id)
+    {
+        $invoice = Invoice::with(['guardian.user', 'payments'])->findOrFail($id);
+        return response()->json($invoice);
+    }
+
+    /**
+     * Record payments for multiple invoices in a single request.
+     */
+    public function recordBulkPayments(Request $request)
+    {
+        $request->validate([
+            'payments' => 'required|array|min:1',
+            'payments.*.invoice_id'            => 'required|integer|exists:invoices,invoice_id',
+            'payments.*.amount_paid'           => 'required|numeric|min:0.01',
+            'payments.*.payment_method'        => 'required|string',
+            'payments.*.transaction_reference' => 'nullable|string',
+        ]);
+
+        $results = [];
+
+        DB::transaction(function () use ($request, &$results) {
+            foreach ($request->payments as $p) {
+                $invoice = Invoice::findOrFail($p['invoice_id']);
+
+                $payment = Payment::create([
+                    'invoice_id'            => $invoice->invoice_id,
+                    'payment_date'          => now(),
+                    'amount_paid'           => $p['amount_paid'],
+                    'payment_method'        => $p['payment_method'],
+                    'transaction_reference' => $p['transaction_reference'] ?? null,
+                ]);
+
+                $totalPaid = Payment::where('invoice_id', $invoice->invoice_id)->sum('amount_paid');
+
+                if ($totalPaid >= $invoice->total_amount) {
+                    $invoice->update(['status' => 'Paid']);
+                }
+
+                $results[] = [
+                    'payment'    => $payment,
+                    'invoice'    => $invoice->fresh()->load('guardian.user'),
+                    'total_paid' => $totalPaid,
+                ];
+            }
+        });
+
+        return response()->json([
+            'message' => 'Bulk payments recorded successfully.',
+            'results' => $results,
         ]);
     }
 

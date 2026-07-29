@@ -19,7 +19,8 @@ class StudentGuardianController extends Controller
         $students = Student::with([
             'guardians.user',
             'medicalRecord',
-            'stops'
+            'stops',
+            'feeStructures'
         ])->paginate($perPage);
 
         return response()->json($students);

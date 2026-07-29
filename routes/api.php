@@ -111,8 +111,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/billing/fee-structures/{id}', [BillingController::class, 'updateFeeStructure']);
     Route::post('/billing/assign-fee', [BillingController::class, 'assignFeeStructure']);
     Route::get('/billing/invoices', [BillingController::class, 'getInvoices']);
+    Route::get('/billing/invoices/{id}', [BillingController::class, 'getInvoice']);
     Route::patch('/billing/invoices/{id}/status', [BillingController::class, 'updateInvoiceStatus']);
     Route::post('/billing/invoices/generate', [BillingController::class, 'generateInvoices']);
     Route::get('/billing/guardians/{id}/ledger', [BillingController::class, 'getLedger']);
     Route::post('/billing/payments', [BillingController::class, 'recordPayment']);
+    Route::post('/billing/payments/bulk', [BillingController::class, 'recordBulkPayments']);
 });
