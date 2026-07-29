@@ -104,17 +104,14 @@ class BillingController extends Controller
     }
 
     /**
-     * Pull all invoices and payments for a specific guardian account.
+     * Pull invoices and payments for a specific guardian account with optional status filter and pagination.
      */
-    public function getLedger($guardianId)
+    public function getLedger(Request $request, $guardianId)
     {
-        $guardian = Guardian::with([
-            'user',
-            'invoices.payments'
-        ])
-        ->where('guardian_id', $guardianId)
-        ->orWhere('user_id', $guardianId)
-        ->first();
+        $guardian = Guardian::with('user')
+            ->where('guardian_id', $guardianId)
+            ->orWhere('user_id', $guardianId)
+            ->first();
 
         if (!$guardian) {
             return response()->json([
@@ -125,9 +122,19 @@ class BillingController extends Controller
             ]);
         }
 
-        $invoices  = $guardian->invoices ?? collect();
-        $totalDue  = $invoices->where('status', 'Unpaid')->sum('total_amount');
-        $totalPaid = $invoices->flatMap->payments->sum('amount_paid');
+        $invoiceQuery = Invoice::with('payments')
+            ->where('guardian_id', $guardian->guardian_id);
+
+        if ($request->filled('status')) {
+            $invoiceQuery->where('status', $request->query('status'));
+        }
+
+        $perPage = $request->query('per_page', 15);
+        $invoices = $invoiceQuery->orderBy('created_at', 'desc')->paginate($perPage);
+
+        $allInvoices = Invoice::where('guardian_id', $guardian->guardian_id)->get();
+        $totalDue  = $allInvoices->where('status', 'Unpaid')->sum('total_amount');
+        $totalPaid = Payment::whereIn('invoice_id', $allInvoices->pluck('invoice_id'))->sum('amount_paid');
 
         return response()->json([
             'guardian'   => $guardian,
