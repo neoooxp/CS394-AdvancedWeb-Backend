@@ -100,6 +100,7 @@ Route::middleware('auth:sanctum')->group(function () {
     // -------------------------------------------------------------------
     Route::get('/operations/routes/{id}/manifest', [AttendanceController::class, 'getRouteManifest']);
     Route::post('/operations/attendance', [AttendanceController::class, 'markAttendance']);
+    Route::post('/operations/attendance/bulk', [AttendanceController::class, 'bulkMarkAttendance']);
     Route::get('/operations/students/{id}/status', [AttendanceController::class, 'getChildStatus']);
     Route::post('/operations/routes/{id}/reports', [AttendanceController::class, 'generateReport']);
 

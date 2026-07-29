@@ -8,6 +8,7 @@ use App\Models\DriverBusAssignment;
 use App\Models\StudentStop;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\DB;
 
 class AttendanceController extends Controller
 {
@@ -61,6 +62,54 @@ class AttendanceController extends Controller
         return response()->json([
             'message'    => 'Attendance recorded successfully.',
             'attendance' => $attendance
+        ]);
+    }
+
+    /**
+     * Create or update attendance entries in bulk.
+     * Uses DB upsert inside a transaction for high-performance single query execution.
+     */
+    public function bulkMarkAttendance(Request $request)
+    {
+        $request->validate([
+            'attendances'                    => 'required|array|min:1',
+            'attendances.*.student_id'      => 'required|integer|exists:students,student_id',
+            'attendances.*.date'            => 'nullable|date',
+            'attendances.*.status'          => 'required|in:Boarded,Dropped Off,Absent',
+            'attendances.*.pickup_location' => 'nullable|numeric',
+            'attendances.*.recorded_by'     => 'required|integer|exists:users,user_id',
+        ]);
+
+        $now = now();
+        $today = $now->toDateString();
+        $records = [];
+
+        foreach ($request->attendances as $a) {
+            $status = $a['status'];
+            $records[] = [
+                'student_id'      => $a['student_id'],
+                'date'            => $a['date'] ?? $today,
+                'status'          => $status,
+                'boarding_time'   => $status === 'Boarded' ? $now : null,
+                'drop_off_time'   => $status === 'Dropped Off' ? $now : null,
+                'pickup_location' => $a['pickup_location'] ?? null,
+                'recorded_by'     => $a['recorded_by'],
+                'created_at'      => $now,
+                'updated_at'      => $now,
+            ];
+        }
+
+        DB::transaction(function () use ($records) {
+            DailyAttendance::upsert(
+                $records,
+                ['student_id', 'date'],
+                ['status', 'boarding_time', 'drop_off_time', 'pickup_location', 'recorded_by', 'updated_at']
+            );
+        });
+
+        return response()->json([
+            'message'  => 'Bulk attendance recorded successfully.',
+            'inserted' => count($records)
         ]);
     }
 

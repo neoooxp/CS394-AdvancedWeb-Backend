@@ -11,12 +11,30 @@ use Illuminate\Support\Facades\DB;
 class StudentGuardianController extends Controller
 {
     /**
-     * Return all students with eager-loaded guardian information.
+     * Return students with eager-loaded guardian information and optional query filters.
      */
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $students = Student::with([
+        $query = Student::query();
+
+        // Filter by Guardian ID
+        if ($request->filled('guardian_id')) {
+            $guardianId = $request->query('guardian_id');
+            $query->whereHas('guardians', function ($q) use ($guardianId) {
+                $q->where('guardians.guardian_id', $guardianId);
+            });
+        }
+
+        // Filter by Guardian User ID
+        if ($request->filled('guardian_user_id')) {
+            $userId = $request->query('guardian_user_id');
+            $query->whereHas('guardians', function ($q) use ($userId) {
+                $q->where('guardians.user_id', $userId);
+            });
+        }
+
+        $students = $query->with([
             'guardians.user',
             'medicalRecord',
             'stops',

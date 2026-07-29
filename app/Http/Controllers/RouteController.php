@@ -11,12 +11,22 @@ use Illuminate\Support\Facades\DB;
 class RouteController extends Controller
 {
     /**
-     * List all geographic paths registered in the database.
+     * List geographic paths registered in the database with optional driver_id filter.
      */
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $routes = Route::with(['students', 'driver', 'buses', 'stops.student'])->paginate($perPage);
+        $query = Route::query();
+
+        if ($request->filled('driver_id')) {
+            $driverId = $request->query('driver_id');
+            $query->where(function ($q) use ($driverId) {
+                $q->where('driver_id', $driverId)
+                  ->orWhereHas('driver', fn($subQ) => $subQ->where('user_id', $driverId));
+            });
+        }
+
+        $routes = $query->with(['students', 'driver', 'buses', 'stops.student'])->paginate($perPage);
 
         return response()->json($routes);
     }
