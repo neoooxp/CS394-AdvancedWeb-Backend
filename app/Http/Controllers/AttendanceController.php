@@ -67,7 +67,7 @@ class AttendanceController extends Controller
 
     /**
      * Create or update attendance entries in bulk.
-     * Uses DB upsert inside a transaction for high-performance single query execution.
+     * Uses updateOrCreate inside a single database transaction for cross-database compatibility (PostgreSQL/MySQL).
      */
     public function bulkMarkAttendance(Request $request)
     {
@@ -76,40 +76,47 @@ class AttendanceController extends Controller
             'attendances.*.student_id'      => 'required|integer|exists:students,student_id',
             'attendances.*.date'            => 'nullable|date',
             'attendances.*.status'          => 'required|in:Boarded,Dropped Off,Absent',
-            'attendances.*.pickup_location' => 'nullable|numeric',
+            'attendances.*.pickup_location' => 'nullable',
             'attendances.*.recorded_by'     => 'required|integer|exists:users,user_id',
         ]);
 
         $now = now();
         $today = $now->toDateString();
-        $records = [];
+        $insertedCount = 0;
 
-        foreach ($request->attendances as $a) {
-            $status = $a['status'];
-            $records[] = [
-                'student_id'      => $a['student_id'],
-                'date'            => $a['date'] ?? $today,
-                'status'          => $status,
-                'boarding_time'   => $status === 'Boarded' ? $now : null,
-                'drop_off_time'   => $status === 'Dropped Off' ? $now : null,
-                'pickup_location' => $a['pickup_location'] ?? null,
-                'recorded_by'     => $a['recorded_by'],
-                'created_at'      => $now,
-                'updated_at'      => $now,
-            ];
-        }
+        DB::transaction(function () use ($request, $now, $today, &$insertedCount) {
+            foreach ($request->attendances as $a) {
+                $status = $a['status'];
+                $date = $a['date'] ?? $today;
 
-        DB::transaction(function () use ($records) {
-            DailyAttendance::upsert(
-                $records,
-                ['student_id', 'date'],
-                ['status', 'boarding_time', 'drop_off_time', 'pickup_location', 'recorded_by', 'updated_at']
-            );
+                $timestamps = [];
+                if ($status === 'Boarded') {
+                    $timestamps['boarding_time'] = $now;
+                } elseif ($status === 'Dropped Off') {
+                    $timestamps['drop_off_time'] = $now;
+                }
+
+                $pickupLocation = is_numeric($a['pickup_location'] ?? null) ? $a['pickup_location'] : null;
+
+                DailyAttendance::updateOrCreate(
+                    [
+                        'student_id' => $a['student_id'],
+                        'date'       => $date,
+                    ],
+                    array_merge([
+                        'status'          => $status,
+                        'pickup_location' => $pickupLocation,
+                        'recorded_by'     => $a['recorded_by'],
+                    ], $timestamps)
+                );
+
+                $insertedCount++;
+            }
         });
 
         return response()->json([
             'message'  => 'Bulk attendance recorded successfully.',
-            'inserted' => count($records)
+            'inserted' => $insertedCount
         ]);
     }
 
