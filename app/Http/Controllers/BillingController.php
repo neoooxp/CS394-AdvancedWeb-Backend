@@ -9,6 +9,7 @@ use App\Models\Payment;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Carbon;
 
 class BillingController extends Controller
@@ -70,42 +71,60 @@ class BillingController extends Controller
      */
     public function generateInvoices()
     {
-        $now     = Carbon::now();
-        $dueDate = $now->copy()->endOfMonth();
-        $created = 0;
+        try {
+            $now     = Carbon::now();
+            $dueDate = $now->copy()->endOfMonth();
+            $created = 0;
 
-        DB::transaction(function () use ($now, $dueDate, &$created) {
-            $assignments = DB::table('student_fee_assignment')
-                ->join('students', 'student_fee_assignment.student_id', '=', 'students.student_id')
-                ->join('fee_structure', 'student_fee_assignment.fee_structure_id', '=', 'fee_structure.fee_structure_id')
-                ->join('student_guardians', 'students.student_id', '=', 'student_guardians.student_id')
-                ->select(
-                    'student_guardians.guardian_id',
-                    DB::raw('SUM(fee_structure.base_amount * (1 - fee_structure.discount_percentage / 100)) as total_amount')
-                )
-                ->groupBy('student_guardians.guardian_id')
-                ->get();
+            DB::transaction(function () use ($now, $dueDate, &$created) {
+                $assignments = DB::table('student_fee_assignment')
+                    ->join('students', 'student_fee_assignment.student_id', '=', 'students.student_id')
+                    ->join('fee_structure', 'student_fee_assignment.fee_structure_id', '=', 'fee_structure.fee_structure_id')
+                    ->join('student_guardians', 'students.student_id', '=', 'student_guardians.student_id')
+                    ->select(
+                        'student_guardians.guardian_id',
+                        DB::raw('SUM(fee_structure.base_amount * (1 - fee_structure.discount_percentage / 100)) as total_amount')
+                    )
+                    ->groupBy('student_guardians.guardian_id')
+                    ->get();
 
-            $nowStr = $now->toDateString();
-            $dueStr = $dueDate->toDateString();
-            $insertData = $assignments->map(fn($a) => [
-                'guardian_id'  => $a->guardian_id,
-                'invoice_date' => $nowStr,
-                'due_date'     => $dueStr,
-                'total_amount' => $a->total_amount,
-                'status'       => 'Unpaid',
-                'created_at'   => $now,
-                'updated_at'   => $now,
-            ])->toArray();
+                if ($assignments->isEmpty()) {
+                    $created = 0;
+                    return;
+                }
 
-            Invoice::insert($insertData);
-            $created = count($insertData);
-        });
+                $nowStr  = $now->toDateTimeString();
+                $dateStr = $now->toDateString();
+                $dueStr  = $dueDate->toDateString();
 
-        return response()->json([
-            'message'         => 'Monthly invoices generated successfully.',
-            'invoices_created' => $created
-        ]);
+                $insertData = $assignments->map(fn($a) => [
+                    'guardian_id'  => $a->guardian_id,
+                    'invoice_date' => $dateStr,
+                    'due_date'     => $dueStr,
+                    'total_amount' => round((float) $a->total_amount, 2),
+                    'status'       => 'Unpaid',
+                    'created_at'   => $nowStr,
+                    'updated_at'   => $nowStr,
+                ])->toArray();
+
+                Invoice::insert($insertData);
+                $created = count($insertData);
+            });
+
+            return response()->json([
+                'message'         => 'Monthly invoices generated successfully.',
+                'invoices_created' => $created
+            ]);
+        } catch (\Throwable $e) {
+            Log::error('Failed to generate monthly invoices: ' . $e->getMessage(), [
+                'exception' => $e
+            ]);
+
+            return response()->json([
+                'message' => 'Failed to generate monthly invoices.',
+                'error'   => $e->getMessage()
+            ], 500);
+        }
     }
 
     /**
