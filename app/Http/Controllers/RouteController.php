@@ -18,6 +18,13 @@ class RouteController extends Controller
         $perPage = $request->query('per_page', 15);
         $query = Route::query();
 
+        if ($request->filled('student_id')) {
+            $studentId = $request->query('student_id');
+            $query->whereHas('stops', function ($q) use ($studentId) {
+                $q->where('student_id', $studentId);
+            });
+        }
+
         if ($request->filled('driver_id')) {
             $driverId = $request->query('driver_id');
             $query->where(function ($q) use ($driverId) {
