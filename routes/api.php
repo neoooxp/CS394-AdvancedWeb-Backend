@@ -29,11 +29,10 @@ use Illuminate\Support\Facades\Route;
 // -----------------------------------------------------------------------
 
 Route::prefix('auth')->group(function () {
-    Route::post('/login', [AuthController::class, 'login']);
-    Route::post('/password/email', [PasswordResetController::class, 'sendResetLink']);
-    Route::post('/password/reset', [PasswordResetController::class, 'resetPassword']);
+    Route::middleware('throttle:5,1')->post('/login', [AuthController::class, 'login']);
+    Route::middleware('throttle:3,1')->post('/password/email', [PasswordResetController::class, 'sendResetLink']);
+    Route::middleware('throttle:3,1')->post('/password/reset', [PasswordResetController::class, 'resetPassword']);
 
-    // Requires authentication to logout
     Route::middleware('auth:sanctum')->post('/logout', [AuthController::class, 'logout']);
 });
 

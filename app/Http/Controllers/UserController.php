@@ -4,6 +4,7 @@ namespace App\Http\Controllers;
 
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Hash;
 
 class UserController extends Controller
@@ -14,42 +15,51 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $query = User::select(
-            'user_id', 'role', 'username', 'first_name', 'last_name',
-            'gender', 'email', 'status', 'phone_number', 'profile_picture', 'last_login', 'created_at'
-        )->with(['guardian.students']);
+        $version = Cache::remember('users:version', 86400, fn() => 1);
+        $cacheKey = 'users:list:v' . $version . ':' . md5(json_encode($request->query()));
 
-        if ($request->filled('role') && strtolower($request->query('role')) !== 'all users' && strtolower($request->query('role')) !== 'all') {
-            $roleVal = strtolower(rtrim($request->query('role'), 's')); // driver, guardian, admin, administrator
-            if ($roleVal === 'administrator') $roleVal = 'admin';
-            $query->where('role', $roleVal);
-        }
+        $data = Cache::remember($cacheKey, 300, function () use ($request, $perPage) {
+            $query = User::select(
+                'user_id', 'role', 'username', 'first_name', 'last_name',
+                'gender', 'email', 'status', 'phone_number', 'profile_picture', 'last_login', 'created_at'
+            )->with(['guardian.students']);
 
-        if ($request->filled('search')) {
-            $search = $request->query('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('username', 'ILIKE', "%{$search}%")
-                  ->orWhere('first_name', 'ILIKE', "%{$search}%")
-                  ->orWhere('last_name', 'ILIKE', "%{$search}%")
-                  ->orWhere('email', 'ILIKE', "%{$search}%")
-                  ->orWhereHas('guardian.students', function ($sq) use ($search) {
-                      $sq->where('first_name', 'ILIKE', "%{$search}%")
-                         ->orWhere('last_name', 'ILIKE', "%{$search}%");
-                  });
+            if ($request->filled('role') && strtolower($request->query('role')) !== 'all users' && strtolower($request->query('role')) !== 'all') {
+                $roleVal = strtolower(rtrim($request->query('role'), 's'));
+                if ($roleVal === 'administrator') $roleVal = 'admin';
+                $query->where('role', $roleVal);
+            }
+
+            if ($request->filled('search')) {
+                $search = $request->query('search');
+                $query->where(function ($q) use ($search) {
+                    $q->where('username', 'ILIKE', "%{$search}%")
+                      ->orWhere('first_name', 'ILIKE', "%{$search}%")
+                      ->orWhere('last_name', 'ILIKE', "%{$search}%")
+                      ->orWhere('email', 'ILIKE', "%{$search}%")
+                      ->orWhereHas('guardian.students', function ($sq) use ($search) {
+                          $sq->where('first_name', 'ILIKE', "%{$search}%")
+                             ->orWhere('last_name', 'ILIKE', "%{$search}%");
+                      });
+                });
+            }
+
+            $users = $query->paginate($perPage);
+            $responseArray = $users->toArray();
+
+            $responseArray['summary_stats'] = Cache::remember('users:summary', 300, function () {
+                return [
+                    'total_users' => User::count(),
+                    'drivers' => User::where('role', 'driver')->count(),
+                    'guardians' => User::where('role', 'guardian')->count(),
+                    'admins' => User::where('role', 'admin')->count(),
+                ];
             });
-        }
 
-        $users = $query->paginate($perPage);
+            return $responseArray;
+        });
 
-        $responseArray = $users->toArray();
-        $responseArray['summary_stats'] = [
-            'total_users' => User::count(),
-            'drivers' => User::where('role', 'driver')->count(),
-            'guardians' => User::where('role', 'guardian')->count(),
-            'admins' => User::where('role', 'admin')->count(),
-        ];
-
-        return response()->json($responseArray);
+        return response()->json($data);
     }
 
     /**
@@ -80,6 +90,8 @@ class UserController extends Controller
             'status'       => true,
         ]);
 
+        $this->invalidateUserCache();
+
         return response()->json([
             'message' => 'User account created successfully.',
             'user'    => $user
@@ -105,6 +117,8 @@ class UserController extends Controller
             'first_name', 'last_name', 'email', 'phone_number', 'profile_picture'
         ]));
 
+        $this->invalidateUserCache();
+
         return response()->json([
             'message' => 'User updated successfully.',
             'user'    => $user
@@ -118,6 +132,8 @@ class UserController extends Controller
     {
         $user = User::findOrFail($id);
         $user->update(['status' => !$user->status]);
+
+        $this->invalidateUserCache();
 
         return response()->json([
             'message' => 'User status toggled successfully.',
@@ -133,8 +149,16 @@ class UserController extends Controller
         $user = User::findOrFail($id);
         $user->delete();
 
+        $this->invalidateUserCache();
+
         return response()->json([
             'message' => 'User deleted successfully.',
         ]);
+    }
+
+    private function invalidateUserCache()
+    {
+        Cache::forget('users:summary');
+        Cache::increment('users:version');
     }
 }

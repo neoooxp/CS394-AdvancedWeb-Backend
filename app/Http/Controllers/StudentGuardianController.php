@@ -6,6 +6,7 @@ use App\Models\MedicalRecord;
 use App\Models\Student;
 use App\Models\StudentGuardian;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class StudentGuardianController extends Controller
@@ -16,58 +17,49 @@ class StudentGuardianController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $query = Student::query();
+        $version = Cache::remember('students:version', 86400, fn() => 1);
+        $cacheKey = 'students:list:v' . $version . ':' . md5(json_encode($request->query()));
 
-        // Filter by Guardian ID or User ID
-        if ($request->filled('guardian_id')) {
-            $guardianId = $request->query('guardian_id');
-            $query->whereHas('guardians', function ($q) use ($guardianId) {
-                $q->where('guardians.guardian_id', $guardianId)
-                  ->orWhere('guardians.user_id', $guardianId);
-            });
-        }
+        $data = Cache::remember($cacheKey, 300, function () use ($request, $perPage) {
+            $query = Student::query();
 
-        // Filter by Grade Level
-        if ($request->filled('grade') && $request->query('grade') !== 'All') {
-            $query->where('grade_level', $request->query('grade'));
-        }
+            if ($request->filled('guardian_id')) {
+                $guardianId = $request->query('guardian_id');
+                $query->whereHas('guardians', function ($q) use ($guardianId) {
+                    $q->where('guardians.guardian_id', $guardianId)
+                      ->orWhere('guardians.user_id', $guardianId);
+                });
+            }
 
-        // Filter by Route ID or Route Name
-        if ($request->filled('route_id') && $request->query('route_id') !== 'All') {
-            $routeVal = $request->query('route_id');
-            $query->whereHas('stops', function ($q) use ($routeVal) {
-                if (is_numeric($routeVal)) {
-                    $q->where('route_id', $routeVal);
-                } else {
-                    $q->whereHas('route', function ($rq) use ($routeVal) {
-                        $rq->where('route_name', $routeVal);
-                    });
-                }
-            });
-        }
+            if ($request->filled('grade') && $request->query('grade') !== 'All') {
+                $query->where('grade_level', $request->query('grade'));
+            }
 
-        // Search Filter (First Name, Last Name, Student Code)
-        if ($request->filled('search')) {
-            $search = $request->query('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('first_name', 'ILIKE', "%{$search}%")
-                  ->orWhere('last_name', 'ILIKE', "%{$search}%")
-                  ->orWhere('student_code', 'ILIKE', "%{$search}%")
-                  ->orWhere(DB::raw("first_name || ' ' || last_name"), 'ILIKE', "%{$search}%");
-            });
-        }
+            if ($request->filled('route_id') && $request->query('route_id') !== 'All') {
+                $routeVal = $request->query('route_id');
+                $query->whereHas('stops', function ($q) use ($routeVal) {
+                    if (is_numeric($routeVal)) {
+                        $q->where('route_id', $routeVal);
+                    } else {
+                        $q->whereHas('route', function ($rq) use ($routeVal) {
+                            $rq->where('route_name', $routeVal);
+                        });
+                    }
+                });
+            }
 
-        if ($perPage === 'all' || $perPage == -1) {
-            $students = $query->with([
-                'guardians.user',
-                'medicalRecord',
-                'stops',
-                'feeStructures'
-            ])->get();
+            if ($request->filled('search')) {
+                $search = $request->query('search');
+                $query->where(function ($q) use ($search) {
+                    $q->where('first_name', 'ILIKE', "%{$search}%")
+                      ->orWhere('last_name', 'ILIKE', "%{$search}%")
+                      ->orWhere('student_code', 'ILIKE', "%{$search}%")
+                      ->orWhere(DB::raw("first_name || ' ' || last_name"), 'ILIKE', "%{$search}%");
+                });
+            }
 
-            return response()->json([
-                'data' => $students,
-                'summary_stats' => [
+            $summaryStats = Cache::remember('students:summary', 300, function () {
+                return [
                     'total_students' => Student::count(),
                     'currently_enrolled' => Student::where(function($q) {
                         $q->whereNull('enrollment_status')
@@ -75,35 +67,31 @@ class StudentGuardianController extends Controller
                     })->count(),
                     'suspended_accounts' => Student::whereRaw('LOWER(enrollment_status) IN (?, ?)', ['suspended', 'inactive'])->count(),
                     'transport_users' => Student::has('stops')->count(),
-                ]
-            ]);
-        }
+                ];
+            });
 
-        $students = $query->with([
-            'guardians.user',
-            'medicalRecord',
-            'stops',
-            'feeStructures'
-        ])->paginate($perPage);
+            if ($perPage === 'all' || $perPage == -1) {
+                $students = $query->with([
+                    'guardians.user', 'medicalRecord', 'stops', 'feeStructures'
+                ])->get();
 
-        // Global System Statistics (independent of active filter/page)
-        $totalStudents = Student::count();
-        $currentlyEnrolled = Student::where(function($q) {
-            $q->whereNull('enrollment_status')
-              ->orWhereRaw('LOWER(enrollment_status) = ?', ['active']);
-        })->count();
-        $suspendedAccounts = Student::whereRaw('LOWER(enrollment_status) IN (?, ?)', ['suspended', 'inactive'])->count();
-        $transportUsers = Student::has('stops')->count();
+                return [
+                    'data' => $students,
+                    'summary_stats' => $summaryStats,
+                ];
+            }
 
-        $responseArray = $students->toArray();
-        $responseArray['summary_stats'] = [
-            'total_students' => $totalStudents,
-            'currently_enrolled' => $currentlyEnrolled,
-            'suspended_accounts' => $suspendedAccounts,
-            'transport_users' => $transportUsers,
-        ];
+            $students = $query->with([
+                'guardians.user', 'medicalRecord', 'stops', 'feeStructures'
+            ])->paginate($perPage);
 
-        return response()->json($responseArray);
+            $responseArray = $students->toArray();
+            $responseArray['summary_stats'] = $summaryStats;
+
+            return $responseArray;
+        });
+
+        return response()->json($data);
     }
 
     /**
@@ -151,6 +139,8 @@ class StudentGuardianController extends Controller
             $this->syncGuardianLink($student, $request);
         });
 
+        $this->invalidateStudentCache();
+
         return response()->json([
             'message' => 'Student created successfully.',
             'student' => $student->load(['medicalRecord', 'guardians.user'])
@@ -195,6 +185,8 @@ class StudentGuardianController extends Controller
 
             $this->syncGuardianLink($student, $request);
         });
+
+        $this->invalidateStudentCache();
 
         return response()->json([
             'message' => 'Student updated successfully.',
@@ -266,6 +258,8 @@ class StudentGuardianController extends Controller
             ]
         );
 
+        $this->invalidateStudentCache();
+
         return response()->json([
             'message'    => 'Guardian assigned to student successfully.',
             'assignment' => $assignment
@@ -280,16 +274,21 @@ class StudentGuardianController extends Controller
         $student = Student::findOrFail($id);
 
         DB::transaction(function () use ($student) {
-            // Cascade delete stop associations
             \App\Models\StudentStop::where('student_id', $student->student_id)->delete();
-            // Delete guardian links
             StudentGuardian::where('student_id', $student->student_id)->delete();
-            // Delete the student record
             $student->delete();
         });
+
+        $this->invalidateStudentCache();
 
         return response()->json([
             'message' => 'Student deleted successfully.',
         ]);
+    }
+
+    private function invalidateStudentCache()
+    {
+        Cache::forget('students:summary');
+        Cache::increment('students:version');
     }
 }

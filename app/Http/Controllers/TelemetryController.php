@@ -12,6 +12,7 @@ use App\Models\Student;
 use App\Models\StudentStop;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class TelemetryController extends Controller
@@ -44,17 +45,19 @@ class TelemetryController extends Controller
         }
         $mongoLatencyMs = round((microtime(true) - $mongoStartTime) * 1000, 2);
 
-        // 3. PostgreSQL Table Counts
-        $tableCounts = [
-            'users' => User::count(),
-            'students' => Student::count(),
-            'buses' => Bus::count(),
-            'routes' => Route::count(),
-            'invoices' => Invoice::count(),
-            'payments' => Payment::count(),
-            'fee_structures' => FeeStructure::count(),
-            'student_stops' => StudentStop::count(),
-        ];
+        // 3. PostgreSQL Table Counts (cached)
+        $tableCounts = Cache::remember('telemetry:table_counts', 300, function () {
+            return [
+                'users' => User::count(),
+                'students' => Student::count(),
+                'buses' => Bus::count(),
+                'routes' => Route::count(),
+                'invoices' => Invoice::count(),
+                'payments' => Payment::count(),
+                'fee_structures' => FeeStructure::count(),
+                'student_stops' => StudentStop::count(),
+            ];
+        });
 
         $pgTotalRecords = array_sum($tableCounts);
         $grandTotalRecords = $pgTotalRecords + $mongoDocCount;

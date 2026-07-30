@@ -8,6 +8,7 @@ use App\Models\DriverBusAssignment;
 use App\Models\StudentStop;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class AttendanceController extends Controller
@@ -18,16 +19,21 @@ class AttendanceController extends Controller
     public function getRouteManifest(Request $request, $routeId)
     {
         $perPage = $request->query('per_page', 15);
-        $query = StudentStop::with('student')
-            ->where('route_id', $routeId)
-            ->orderBy('stop_order');
+        $cacheKey = "manifest:{$routeId}:page:{$perPage}";
 
-        if ($perPage === 'all' || $perPage == -1) {
-            return response()->json($query->get());
-        }
+        $data = Cache::remember($cacheKey, 900, function () use ($routeId, $perPage) {
+            $query = StudentStop::with('student')
+                ->where('route_id', $routeId)
+                ->orderBy('stop_order');
 
-        $stops = $query->paginate($perPage);
-        return response()->json($stops);
+            if ($perPage === 'all' || $perPage == -1) {
+                return $query->get();
+            }
+
+            return $query->paginate($perPage);
+        });
+
+        return response()->json($data);
     }
 
     /**
@@ -62,6 +68,12 @@ class AttendanceController extends Controller
                 'recorded_by'     => $request->recorded_by,
             ], $timestamps)
         );
+
+        Cache::put("attendance:today:{$request->student_id}", [
+            'status'        => $attendance->status,
+            'boarding_time' => $attendance->boarding_time,
+            'drop_off_time' => $attendance->drop_off_time,
+        ], 3600);
 
         return response()->json([
             'message'    => 'Attendance recorded successfully.',
@@ -118,6 +130,10 @@ class AttendanceController extends Controller
             }
         });
 
+        foreach ($request->attendances as $a) {
+            Cache::forget("attendance:today:{$a['student_id']}");
+        }
+
         return response()->json([
             'message'  => 'Bulk attendance recorded successfully.',
             'inserted' => $insertedCount
@@ -131,6 +147,12 @@ class AttendanceController extends Controller
     public function getChildStatus($studentId)
     {
         $today = Carbon::today()->toDateString();
+        $cacheKey = "attendance:today:{$studentId}";
+
+        $cached = Cache::get($cacheKey);
+        if ($cached) {
+            return response()->json($cached);
+        }
 
         $attendance = DailyAttendance::where('student_id', $studentId)
             ->where('date', $today)
@@ -149,7 +171,6 @@ class AttendanceController extends Controller
             'driver'     => null,
         ];
 
-        // If the student is currently on the bus, retrieve the active driver profile
         if ($attendance->status === 'Boarded') {
             $driverAssignment = DriverBusAssignment::with(['driver.user'])
                 ->where('assigned_date', $today)
@@ -160,6 +181,8 @@ class AttendanceController extends Controller
                 $response['driver'] = $driverAssignment->driver;
             }
         }
+
+        Cache::put($cacheKey, $response, 60);
 
         return response()->json($response);
     }
@@ -219,6 +242,10 @@ class AttendanceController extends Controller
             'total_absent'  => $totalAbsent,
             'file_path'     => 'reports/route_' . $routeId . '_' . $today . '.json',
         ]);
+
+        foreach ($studentIds as $id) {
+            Cache::forget("attendance:today:{$id}");
+        }
 
         return response()->json([
             'message' => 'Route completed and attendance finalized successfully.',

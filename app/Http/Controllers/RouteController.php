@@ -6,6 +6,7 @@ use App\Models\Route;
 use App\Models\Student;
 use App\Models\StudentStop;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\DB;
 
 class RouteController extends Controller
@@ -16,52 +17,60 @@ class RouteController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $query = Route::query();
+        $version = Cache::remember('routes:version', 86400, fn() => 1);
+        $cacheKey = 'routes:list:v' . $version . ':' . md5(json_encode($request->query()));
 
-        if ($request->filled('student_id')) {
-            $studentId = $request->query('student_id');
-            $query->whereHas('stops', function ($q) use ($studentId) {
-                $q->where('student_id', $studentId);
-            });
-        }
+        $data = Cache::remember($cacheKey, 300, function () use ($request, $perPage) {
+            $query = Route::query();
 
-        if ($request->filled('driver_id')) {
-            $driverId = $request->query('driver_id');
-            $query->where(function ($q) use ($driverId) {
-                $q->where('driver_id', $driverId)
-                  ->orWhereHas('driver', fn($subQ) => $subQ->where('user_id', $driverId));
-            });
-        }
+            if ($request->filled('student_id')) {
+                $studentId = $request->query('student_id');
+                $query->whereHas('stops', function ($q) use ($studentId) {
+                    $q->where('student_id', $studentId);
+                });
+            }
 
-        if ($request->filled('search')) {
-            $search = $request->query('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('route_name', 'ILIKE', "%{$search}%")
-                  ->orWhere('start_location', 'ILIKE', "%{$search}%")
-                  ->orWhere('end_location', 'ILIKE', "%{$search}%");
-            });
-        }
+            if ($request->filled('driver_id')) {
+                $driverId = $request->query('driver_id');
+                $query->where(function ($q) use ($driverId) {
+                    $q->where('driver_id', $driverId)
+                      ->orWhereHas('driver', fn($subQ) => $subQ->where('user_id', $driverId));
+                });
+            }
 
-        if ($perPage === 'all' || $perPage == -1) {
-            $routes = $query->with(['students', 'driver', 'buses', 'stops.student'])->get();
-            return response()->json([
-                'data' => $routes,
-                'summary_stats' => [
+            if ($request->filled('search')) {
+                $search = $request->query('search');
+                $query->where(function ($q) use ($search) {
+                    $q->where('route_name', 'ILIKE', "%{$search}%")
+                      ->orWhere('start_location', 'ILIKE', "%{$search}%")
+                      ->orWhere('end_location', 'ILIKE', "%{$search}%");
+                });
+            }
+
+            $summaryStats = Cache::remember('routes:summary', 300, function () {
+                return [
                     'total_routes' => Route::count(),
                     'assigned_routes' => Route::whereNotNull('driver_id')->count(),
-                ]
-            ]);
-        }
+                ];
+            });
 
-        $routes = $query->with(['students', 'driver', 'buses', 'stops.student'])->paginate($perPage);
+            if ($perPage === 'all' || $perPage == -1) {
+                $routes = $query->with(['students', 'driver', 'buses', 'stops.student'])->get();
+                return [
+                    'data' => $routes,
+                    'summary_stats' => $summaryStats,
+                ];
+            }
 
-        $responseArray = $routes->toArray();
-        $responseArray['summary_stats'] = [
-            'total_routes' => Route::count(),
-            'assigned_routes' => Route::whereNotNull('driver_id')->count(),
-        ];
+            $routes = $query->with(['students', 'driver', 'buses', 'stops.student'])->paginate($perPage);
 
-        return response()->json($responseArray);
+            $responseArray = $routes->toArray();
+            $responseArray['summary_stats'] = $summaryStats;
+
+            return $responseArray;
+        });
+
+        return response()->json($data);
     }
 
     /**
@@ -80,6 +89,8 @@ class RouteController extends Controller
         $route = Route::create($request->only([
             'route_name', 'start_location', 'end_location', 'estimated_duration', 'driver_id'
         ]));
+
+        $this->invalidateRouteCache();
 
         return response()->json([
             'message' => 'Route created successfully.',
@@ -105,6 +116,8 @@ class RouteController extends Controller
         $route->update($request->only([
             'route_name', 'start_location', 'end_location', 'estimated_duration', 'driver_id'
         ]));
+
+        $this->invalidateRouteCache();
 
         return response()->json([
             'message' => 'Route updated successfully.',
@@ -156,6 +169,8 @@ class RouteController extends Controller
             StudentStop::insert($stopsData);
         });
 
+        $this->invalidateRouteCache();
+
         return response()->json([
             'message' => 'Route stops synchronized successfully.',
             'route'   => $route->load(['students', 'stops', 'stops.student'])
@@ -176,9 +191,17 @@ class RouteController extends Controller
             $route->delete();
         });
 
+        $this->invalidateRouteCache();
+
         return response()->json([
             'message' => 'Route deleted successfully.',
             'route_id' => $routeId
         ]);
+    }
+
+    private function invalidateRouteCache()
+    {
+        Cache::forget('routes:summary');
+        Cache::increment('routes:version');
     }
 }

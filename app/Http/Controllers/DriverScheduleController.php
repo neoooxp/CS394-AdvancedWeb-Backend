@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Driver;
 use App\Models\DriverSchedule;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class DriverScheduleController extends Controller
 {
@@ -20,23 +21,23 @@ class DriverScheduleController extends Controller
             return response()->json(['data' => [], 'total' => 0, 'per_page' => $perPage, 'current_page' => 1]);
         }
 
-        // Check if driver ID matches drivers.id or drivers.user_id
-        $driver = Driver::where('id', $driverId)
-            ->orWhere('user_id', $driverId)
-            ->first();
+        $cacheKey = "driver:schedule:{$driverId}:page:{$perPage}";
 
-        $targetDriverId = $driver ? $driver->id : $driverId;
+        $data = Cache::remember($cacheKey, 120, function () use ($driverId, $perPage) {
+            $driver = Driver::where('id', $driverId)
+                ->orWhere('user_id', $driverId)
+                ->first();
 
-        $schedules = DriverSchedule::where('driver_id', $targetDriverId)
-            ->orderBy('shift_start_time')
-            ->paginate($perPage);
+            $targetDriverId = $driver ? $driver->id : $driverId;
 
-        return response()->json($schedules);
+            return DriverSchedule::where('driver_id', $targetDriverId)
+                ->orderBy('shift_start_time')
+                ->paginate($perPage);
+        });
+
+        return response()->json($data);
     }
 
-    /**
-     * Toggle the is_available flag on the driver's active schedule row.
-     */
     public function toggleAvailability(Request $request)
     {
         $request->validate([
@@ -52,7 +53,6 @@ class DriverScheduleController extends Controller
 
         $targetDriverId = $driver ? $driver->id : $driverId;
 
-        // Update the most recent schedule row for this driver
         $schedule = DriverSchedule::where('driver_id', $targetDriverId)
             ->latest()
             ->first();
@@ -67,6 +67,8 @@ class DriverScheduleController extends Controller
         $schedule->update([
             'is_available' => $request->is_available,
         ]);
+
+        Cache::put("driver:availability:{$targetDriverId}", $request->is_available, 300);
 
         return response()->json([
             'message'      => 'Driver availability updated.',

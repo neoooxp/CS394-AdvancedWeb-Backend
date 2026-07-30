@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Models\Bus;
 use App\Models\BusDocument;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 
 class BusController extends Controller
 {
@@ -14,44 +15,51 @@ class BusController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $query = Bus::with(['documents', 'routes.driver', 'assignments.driver.user']);
+        $version = Cache::remember('buses:version', 86400, fn() => 1);
+        $cacheKey = 'buses:list:v' . $version . ':' . md5(json_encode($request->query()));
 
-        if ($request->filled('status') && strtolower($request->query('status')) !== 'all') {
-            $query->whereRaw('LOWER(availability_status) = ?', [strtolower($request->query('status'))]);
-        }
+        $data = Cache::remember($cacheKey, 300, function () use ($request, $perPage) {
+            $query = Bus::with(['documents', 'routes.driver', 'assignments.driver.user']);
 
-        if ($request->filled('search')) {
-            $search = $request->query('search');
-            $query->where(function ($q) use ($search) {
-                $q->where('bus_number', 'ILIKE', "%{$search}%")
-                  ->orWhere('plate_number', 'ILIKE', "%{$search}%")
-                  ->orWhere('model', 'ILIKE', "%{$search}%")
-                  ->orWhere('manufacturer', 'ILIKE', "%{$search}%");
-            });
-        }
+            if ($request->filled('status') && strtolower($request->query('status')) !== 'all') {
+                $query->whereRaw('LOWER(availability_status) = ?', [strtolower($request->query('status'))]);
+            }
 
-        if ($perPage === 'all' || $perPage == -1) {
-            $buses = $query->get();
-            return response()->json([
-                'data' => $buses,
-                'summary_stats' => [
+            if ($request->filled('search')) {
+                $search = $request->query('search');
+                $query->where(function ($q) use ($search) {
+                    $q->where('bus_number', 'ILIKE', "%{$search}%")
+                      ->orWhere('plate_number', 'ILIKE', "%{$search}%")
+                      ->orWhere('model', 'ILIKE', "%{$search}%")
+                      ->orWhere('manufacturer', 'ILIKE', "%{$search}%");
+                });
+            }
+
+            $summaryStats = Cache::remember('buses:summary', 300, function () {
+                return [
                     'total_buses' => Bus::count(),
                     'active_buses' => Bus::whereRaw('LOWER(availability_status) = ?', ['active'])->count(),
                     'maintenance_buses' => Bus::whereRaw('LOWER(availability_status) IN (?, ?)', ['in_service', 'maintenance'])->count(),
-                ]
-            ]);
-        }
+                ];
+            });
 
-        $buses = $query->paginate($perPage);
+            if ($perPage === 'all' || $perPage == -1) {
+                $buses = $query->get();
+                return [
+                    'data' => $buses,
+                    'summary_stats' => $summaryStats,
+                ];
+            }
 
-        $responseArray = $buses->toArray();
-        $responseArray['summary_stats'] = [
-            'total_buses' => Bus::count(),
-            'active_buses' => Bus::whereRaw('LOWER(availability_status) = ?', ['active'])->count(),
-            'maintenance_buses' => Bus::whereRaw('LOWER(availability_status) IN (?, ?)', ['in_service', 'maintenance'])->count(),
-        ];
+            $buses = $query->paginate($perPage);
 
-        return response()->json($responseArray);
+            $responseArray = $buses->toArray();
+            $responseArray['summary_stats'] = $summaryStats;
+
+            return $responseArray;
+        });
+
+        return response()->json($data);
     }
 
     /**
@@ -74,6 +82,8 @@ class BusController extends Controller
             'bus_number', 'plate_number', 'capacity', 'model',
             'manufacturer', 'year', 'mileage', 'availability_status'
         ]));
+
+        $this->invalidateBusCache();
 
         return response()->json([
             'message' => 'Bus added successfully.',
@@ -102,6 +112,8 @@ class BusController extends Controller
             'model', 'manufacturer', 'year',
         ]));
 
+        $this->invalidateBusCache();
+
         return response()->json([
             'message' => 'Bus updated successfully.',
             'bus'     => $bus->fresh()->load('documents'),
@@ -128,9 +140,17 @@ class BusController extends Controller
             'expiry_date'   => $request->expiry_date,
         ]);
 
+        $this->invalidateBusCache();
+
         return response()->json([
             'message'  => 'Bus document stored successfully.',
             'document' => $document
         ], 201);
+    }
+
+    private function invalidateBusCache()
+    {
+        Cache::forget('buses:summary');
+        Cache::increment('buses:version');
     }
 }
