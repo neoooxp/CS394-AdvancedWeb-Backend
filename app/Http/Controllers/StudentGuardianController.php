@@ -26,11 +26,33 @@ class StudentGuardianController extends Controller
             });
         }
 
-        // Filter by Guardian User ID
-        if ($request->filled('guardian_user_id')) {
-            $userId = $request->query('guardian_user_id');
-            $query->whereHas('guardians', function ($q) use ($userId) {
-                $q->where('guardians.user_id', $userId);
+        // Filter by Grade Level
+        if ($request->filled('grade') && $request->query('grade') !== 'All') {
+            $query->where('grade_level', $request->query('grade'));
+        }
+
+        // Filter by Route ID or Route Name
+        if ($request->filled('route_id') && $request->query('route_id') !== 'All') {
+            $routeVal = $request->query('route_id');
+            $query->whereHas('stops', function ($q) use ($routeVal) {
+                if (is_numeric($routeVal)) {
+                    $q->where('route_id', $routeVal);
+                } else {
+                    $q->whereHas('route', function ($rq) use ($routeVal) {
+                        $rq->where('route_name', $routeVal);
+                    });
+                }
+            });
+        }
+
+        // Search Filter (First Name, Last Name, Student Code)
+        if ($request->filled('search')) {
+            $search = $request->query('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('first_name', 'ILIKE', "%{$search}%")
+                  ->orWhere('last_name', 'ILIKE', "%{$search}%")
+                  ->orWhere('student_code', 'ILIKE', "%{$search}%")
+                  ->orWhere(DB::raw("first_name || ' ' || last_name"), 'ILIKE', "%{$search}%");
             });
         }
 
@@ -41,7 +63,24 @@ class StudentGuardianController extends Controller
             'feeStructures'
         ])->paginate($perPage);
 
-        return response()->json($students);
+        // Global System Statistics (independent of active filter/page)
+        $totalStudents = Student::count();
+        $currentlyEnrolled = Student::where(function($q) {
+            $q->whereNull('enrollment_status')
+              ->orWhereRaw('LOWER(enrollment_status) = ?', ['active']);
+        })->count();
+        $suspendedAccounts = Student::whereRaw('LOWER(enrollment_status) IN (?, ?)', ['suspended', 'inactive'])->count();
+        $transportUsers = Student::has('stops')->count();
+
+        $responseArray = $students->toArray();
+        $responseArray['summary_stats'] = [
+            'total_students' => $totalStudents,
+            'currently_enrolled' => $currentlyEnrolled,
+            'suspended_accounts' => $suspendedAccounts,
+            'transport_users' => $transportUsers,
+        ];
+
+        return response()->json($responseArray);
     }
 
     /**

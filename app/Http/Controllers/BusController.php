@@ -14,9 +14,32 @@ class BusController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $buses = Bus::with(['documents', 'routes.driver', 'assignments.driver.user'])->paginate($perPage);
+        $query = Bus::with(['documents', 'routes.driver', 'assignments.driver.user']);
 
-        return response()->json($buses);
+        if ($request->filled('status') && strtolower($request->query('status')) !== 'all') {
+            $query->whereRaw('LOWER(availability_status) = ?', [strtolower($request->query('status'))]);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->query('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('bus_number', 'ILIKE', "%{$search}%")
+                  ->orWhere('plate_number', 'ILIKE', "%{$search}%")
+                  ->orWhere('model', 'ILIKE', "%{$search}%")
+                  ->orWhere('manufacturer', 'ILIKE', "%{$search}%");
+            });
+        }
+
+        $buses = $query->paginate($perPage);
+
+        $responseArray = $buses->toArray();
+        $responseArray['summary_stats'] = [
+            'total_buses' => Bus::count(),
+            'active_buses' => Bus::whereRaw('LOWER(availability_status) = ?', ['active'])->count(),
+            'maintenance_buses' => Bus::whereRaw('LOWER(availability_status) IN (?, ?)', ['in_service', 'maintenance'])->count(),
+        ];
+
+        return response()->json($responseArray);
     }
 
     /**

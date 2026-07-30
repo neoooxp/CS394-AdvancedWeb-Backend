@@ -14,12 +14,38 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $users = User::select(
+        $query = User::select(
             'user_id', 'role', 'username', 'first_name', 'last_name',
             'gender', 'email', 'status', 'phone_number', 'profile_picture', 'last_login', 'created_at'
-        )->paginate($perPage);
+        );
 
-        return response()->json($users);
+        if ($request->filled('role') && strtolower($request->query('role')) !== 'all users' && strtolower($request->query('role')) !== 'all') {
+            $roleVal = strtolower(rtrim($request->query('role'), 's')); // driver, guardian, admin, administrator
+            if ($roleVal === 'administrator') $roleVal = 'admin';
+            $query->where('role', $roleVal);
+        }
+
+        if ($request->filled('search')) {
+            $search = $request->query('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('username', 'ILIKE', "%{$search}%")
+                  ->orWhere('first_name', 'ILIKE', "%{$search}%")
+                  ->orWhere('last_name', 'ILIKE', "%{$search}%")
+                  ->orWhere('email', 'ILIKE', "%{$search}%");
+            });
+        }
+
+        $users = $query->paginate($perPage);
+
+        $responseArray = $users->toArray();
+        $responseArray['summary_stats'] = [
+            'total_users' => User::count(),
+            'drivers' => User::where('role', 'driver')->count(),
+            'guardians' => User::where('role', 'guardian')->count(),
+            'admins' => User::where('role', 'admin')->count(),
+        ];
+
+        return response()->json($responseArray);
     }
 
     /**

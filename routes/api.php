@@ -10,6 +10,7 @@ use App\Http\Controllers\MaintenanceController;
 use App\Http\Controllers\PasswordResetController;
 use App\Http\Controllers\RouteController;
 use App\Http\Controllers\StudentGuardianController;
+use App\Http\Controllers\TelemetryController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -41,6 +42,11 @@ Route::prefix('auth')->group(function () {
 // -----------------------------------------------------------------------
 
 Route::middleware('auth:sanctum')->group(function () {
+
+    // -------------------------------------------------------------------
+    // 📊 Domain Telemetry & Health Monitoring
+    // -------------------------------------------------------------------
+    Route::get('/telemetry/database', [TelemetryController::class, 'getDatabaseTelemetry']);
 
     // -------------------------------------------------------------------
     // 👥 Domain A (cont.): User Account Management (Admin Protected)

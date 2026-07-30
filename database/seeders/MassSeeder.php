@@ -15,12 +15,30 @@ class MassSeeder extends Seeder
         // Disable query log to prevent memory bloat during massive inserts
         DB::disableQueryLog();
 
+        $startTime = microtime(true);
         $this->command->info("🚀 Starting optimized mass seeding of 1.2M+ database rows with complete ecosystem relationships...");
+
+        // Wipe existing tables to avoid key constraint collisions
+        $tables = [
+            'payments', 'invoices', 'student_fee_assignment', 'ledgers', 'fee_structure', 'driver_schedules',
+            'attendance_logs', 'student_stops', 'students_stop',
+            'student_guardians', 'students', 'buses', 'routes',
+            'drivers', 'guardians', 'users'
+        ];
+        
+        foreach ($tables as $table) {
+            try { 
+                DB::table($table)->delete(); 
+            } catch (\Exception $e) {
+                // Skip if table doesn't exist
+            }
+        }
 
         // Pre-compute password hash ONCE for high performance
         $this->hashedPassword = Hash::make('password123');
 
-        $startTime = microtime(true);
+        // Guarantee default admin and core system accounts exist
+        $this->seedDefaultAdminAndUsers();
 
         // Ensure baseline fee structures exist
         $this->seedFeeStructures();
@@ -129,6 +147,33 @@ class MassSeeder extends Seeder
                 ['fee_name' => 'Field Trip (Hourly)', 'base_amount' => 45.00, 'discount_percentage' => 0.00, 'created_at' => now(), 'updated_at' => now()],
                 ['fee_name' => 'Late Fee Penalty', 'base_amount' => 25.00, 'discount_percentage' => 0.00, 'created_at' => now(), 'updated_at' => now()],
             ]);
+        }
+    }
+
+    private function seedDefaultAdminAndUsers(): void
+    {
+        if (!DB::table('users')->where('email', 'admin@sbms.com')->exists()) {
+            DB::table('users')->insertGetId([
+                'role' => 'admin', 'username' => 'sbms_admin', 'first_name' => 'Alice', 'last_name' => 'Smith',
+                'gender' => 'female', 'email' => 'admin@sbms.com', 'password' => $this->hashedPassword,
+                'phone_number' => '+855 12 345 678', 'status' => true, 'created_at' => now(), 'updated_at' => now()
+            ], 'user_id');
+        }
+
+        if (!DB::table('users')->where('email', 'driver@sbms.com')->exists()) {
+            DB::table('users')->insertGetId([
+                'role' => 'driver', 'username' => 'john_driver', 'first_name' => 'John', 'last_name' => 'Doe',
+                'gender' => 'male', 'email' => 'driver@sbms.com', 'password' => $this->hashedPassword,
+                'phone_number' => '+855 98 765 432', 'status' => true, 'created_at' => now(), 'updated_at' => now()
+            ], 'user_id');
+        }
+
+        if (!DB::table('users')->where('email', 'guardian@sbms.com')->exists()) {
+            DB::table('users')->insertGetId([
+                'role' => 'guardian', 'username' => 'sarah_parent', 'first_name' => 'Sarah', 'last_name' => 'Connor',
+                'gender' => 'female', 'email' => 'guardian@sbms.com', 'password' => $this->hashedPassword,
+                'phone_number' => '+855 17 555 019', 'status' => true, 'created_at' => now(), 'updated_at' => now()
+            ], 'user_id');
         }
     }
 
@@ -345,7 +390,7 @@ class MassSeeder extends Seeder
         for ($i = 0; $i < $count; $i++) {
             $buses[] = [
                 'bus_number' => 'BUS-' . str_pad($i + 1000, 6, '0', STR_PAD_LEFT),
-                'plate_number' => 'Phnom Penh ' . chr(rand(65, 90)) . rand(1000, 9999),
+                'plate_number' => 'Phnom Penh ' . chr(65 + ($i % 26)) . '-' . str_pad($i + 1000, 5, '0', STR_PAD_LEFT),
                 'capacity' => rand(20, 80),
                 'model' => $models[array_rand($models)],
                 'manufacturer' => $manufacturers[array_rand($manufacturers)],
@@ -418,14 +463,20 @@ class MassSeeder extends Seeder
         $now = now();
         $chunkSize = 2500;
 
-        $maxGuardianId = DB::table('guardians')->max('guardian_id') ?? 1;
-        $maxStudentId = DB::table('students')->max('student_id') ?? 1;
+        $guardianIds = DB::table('guardians')->pluck('guardian_id')->toArray();
+        if (empty($guardianIds)) {
+            $guardianIds = DB::table('guardians')->pluck('id')->toArray();
+        }
+        $studentIds = DB::table('students')->pluck('student_id')->toArray();
+        if (empty($guardianIds) || empty($studentIds)) return;
 
+        $gCount = count($guardianIds);
+        $sCount = count($studentIds);
         $studentGuardians = [];
 
         for ($i = 0; $i < $count; $i++) {
-            $guardianId = rand(1, $maxGuardianId);
-            $studentId = rand(1, $maxStudentId);
+            $guardianId = $guardianIds[$i % $gCount];
+            $studentId = $studentIds[rand(0, $sCount - 1)];
 
             $studentGuardians[] = [
                 'guardian_id' => $guardianId,
@@ -455,14 +506,17 @@ class MassSeeder extends Seeder
         $now = now();
         $chunkSize = 2500;
 
-        $maxRouteId = DB::table('routes')->max('route_id') ?? 1;
-        $maxStudentId = DB::table('students')->max('student_id') ?? 1;
+        $studentIds = DB::table('students')->pluck('student_id')->toArray();
+        $routeIds = DB::table('routes')->pluck('route_id')->toArray();
+        if (empty($studentIds) || empty($routeIds)) return;
 
+        $sCount = count($studentIds);
+        $rCount = count($routeIds);
         $studentStops = [];
 
         for ($i = 0; $i < $count; $i++) {
-            $studentId = rand(1, $maxStudentId);
-            $routeId = rand(1, $maxRouteId);
+            $studentId = $studentIds[$i % $sCount];
+            $routeId = $routeIds[rand(0, $rCount - 1)];
 
             $studentStops[] = [
                 'student_id' => $studentId,
@@ -493,15 +547,18 @@ class MassSeeder extends Seeder
         $now = now();
         $chunkSize = 2500;
 
-        $maxBusId = DB::table('buses')->max('bus_id') ?? 1;
-        $maxRouteId = DB::table('routes')->max('route_id') ?? 1;
+        $busIds = DB::table('buses')->pluck('bus_id')->toArray();
+        $routeIds = DB::table('routes')->pluck('route_id')->toArray();
+        if (empty($busIds) || empty($routeIds)) return;
 
+        $bCount = count($busIds);
+        $rCount = count($routeIds);
         $busRoutes = [];
 
         for ($i = 0; $i < $count; $i++) {
             $busRoutes[] = [
-                'bus_id' => rand(1, $maxBusId),
-                'route_id' => rand(1, $maxRouteId),
+                'bus_id' => $busIds[$i % $bCount],
+                'route_id' => $routeIds[rand(0, $rCount - 1)],
                 'created_at' => $now,
             ];
 
@@ -526,15 +583,21 @@ class MassSeeder extends Seeder
         $now = now();
         $chunkSize = 2500;
 
-        $maxDriverId = DB::table('drivers')->max('id') ?? 1;
-        $maxBusId = DB::table('buses')->max('bus_id') ?? 1;
+        $driverIds = DB::table('drivers')->pluck('id')->toArray();
+        if (empty($driverIds)) {
+            $driverIds = DB::table('drivers')->pluck('driver_id')->toArray();
+        }
+        $busIds = DB::table('buses')->pluck('bus_id')->toArray();
+        if (empty($driverIds) || empty($busIds)) return;
 
+        $dCount = count($driverIds);
+        $bCount = count($busIds);
         $assignments = [];
 
         for ($i = 0; $i < $count; $i++) {
             $assignments[] = [
-                'driver_id' => rand(1, $maxDriverId),
-                'bus_id' => rand(1, $maxBusId),
+                'driver_id' => $driverIds[$i % $dCount],
+                'bus_id' => $busIds[rand(0, $bCount - 1)],
                 'assigned_date' => $now->copy()->subDays(rand(0, 90))->toDateString(),
                 'status' => $statuses[array_rand($statuses)],
                 'created_at' => $now,
@@ -561,11 +624,17 @@ class MassSeeder extends Seeder
         $now = now();
         $chunkSize = 2500;
 
-        $maxDriverId = DB::table('drivers')->max('id') ?? 1;
+        $driverIds = DB::table('drivers')->pluck('id')->toArray();
+        if (empty($driverIds)) {
+            $driverIds = DB::table('drivers')->pluck('driver_id')->toArray();
+        }
+        if (empty($driverIds)) return;
+
+        $dCount = count($driverIds);
         $schedules = [];
 
         for ($i = 0; $i < $count; $i++) {
-            $driverId = rand(1, $maxDriverId);
+            $driverId = $driverIds[$i % $dCount];
             $startTime = $now->copy()->subDays(rand(0, 30))->setTime(rand(6, 8), 0, 0);
             $endTime = $startTime->copy()->addHours(8);
 
@@ -596,16 +665,18 @@ class MassSeeder extends Seeder
     private function seedStudentFeeAssignments(int $count): void
     {
         $feeIds = DB::table('fee_structure')->pluck('fee_structure_id')->toArray();
-        if (empty($feeIds)) return;
+        $studentIds = DB::table('students')->pluck('student_id')->toArray();
+        if (empty($feeIds) || empty($studentIds)) return;
 
-        $maxStudentId = DB::table('students')->max('student_id') ?? 1;
+        $sCount = count($studentIds);
+        $fCount = count($feeIds);
         $chunkSize = 2500;
         $assignments = [];
         $assignedPairs = [];
 
         for ($i = 0; $i < $count; $i++) {
-            $studentId = rand(1, $maxStudentId);
-            $feeId = $feeIds[array_rand($feeIds)];
+            $studentId = $studentIds[$i % $sCount];
+            $feeId = $feeIds[rand(0, $fCount - 1)];
             $key = "{$studentId}_{$feeId}";
 
             if (isset($assignedPairs[$key])) continue;
@@ -637,16 +708,18 @@ class MassSeeder extends Seeder
         $now = now();
         $chunkSize = 2500;
 
-        $maxStudentId = DB::table('students')->max('student_id') ?? 1;
+        $studentIds = DB::table('students')->pluck('student_id')->toArray();
         $driverUserIds = DB::table('users')->where('role', 'driver')->pluck('user_id')->toArray();
-        $fallbackUserId = !empty($driverUserIds) ? $driverUserIds[0] : 1;
+        if (empty($studentIds) || empty($driverUserIds)) return;
 
+        $sCount = count($studentIds);
+        $dCount = count($driverUserIds);
         $attendances = [];
 
         for ($i = 0; $i < $count; $i++) {
-            $studentId = rand(1, $maxStudentId);
+            $studentId = $studentIds[$i % $sCount];
             $date = $now->copy()->subDays(rand(0, 365))->toDateString();
-            $recordedBy = !empty($driverUserIds) ? $driverUserIds[array_rand($driverUserIds)] : $fallbackUserId;
+            $recordedBy = $driverUserIds[rand(0, $dCount - 1)];
 
             $attendances[] = [
                 'student_id' => $studentId,
@@ -681,11 +754,17 @@ class MassSeeder extends Seeder
         $now = now();
         $chunkSize = 2500;
 
-        $maxGuardianId = DB::table('guardians')->max('guardian_id') ?? 1;
+        $guardianIds = DB::table('guardians')->pluck('guardian_id')->toArray();
+        if (empty($guardianIds)) {
+            $guardianIds = DB::table('guardians')->pluck('id')->toArray();
+        }
+        if (empty($guardianIds)) return;
+
+        $gCount = count($guardianIds);
         $invoices = [];
 
         for ($i = 0; $i < $count; $i++) {
-            $guardianId = rand(1, $maxGuardianId);
+            $guardianId = $guardianIds[$i % $gCount];
             $totalAmount = rand(50, 500) * 1000;
 
             $invoices[] = [
@@ -719,11 +798,14 @@ class MassSeeder extends Seeder
         $now = now();
         $chunkSize = 2500;
 
-        $maxInvoiceId = DB::table('invoices')->max('invoice_id') ?? 1;
+        $invoiceIds = DB::table('invoices')->pluck('invoice_id')->toArray();
+        if (empty($invoiceIds)) return;
+
+        $iCount = count($invoiceIds);
         $payments = [];
 
         for ($i = 0; $i < $count; $i++) {
-            $invoiceId = rand(1, $maxInvoiceId);
+            $invoiceId = $invoiceIds[$i % $iCount];
 
             $payments[] = [
                 'invoice_id' => $invoiceId,

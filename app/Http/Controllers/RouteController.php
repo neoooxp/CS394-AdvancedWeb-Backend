@@ -26,9 +26,24 @@ class RouteController extends Controller
             });
         }
 
+        if ($request->filled('search')) {
+            $search = $request->query('search');
+            $query->where(function ($q) use ($search) {
+                $q->where('route_name', 'ILIKE', "%{$search}%")
+                  ->orWhere('start_location', 'ILIKE', "%{$search}%")
+                  ->orWhere('end_location', 'ILIKE', "%{$search}%");
+            });
+        }
+
         $routes = $query->with(['students', 'driver', 'buses', 'stops.student'])->paginate($perPage);
 
-        return response()->json($routes);
+        $responseArray = $routes->toArray();
+        $responseArray['summary_stats'] = [
+            'total_routes' => Route::count(),
+            'assigned_routes' => Route::whereNotNull('driver_id')->count(),
+        ];
+
+        return response()->json($responseArray);
     }
 
     /**

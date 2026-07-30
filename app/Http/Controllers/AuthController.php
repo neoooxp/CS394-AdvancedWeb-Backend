@@ -15,13 +15,17 @@ class AuthController extends Controller
     public function login(Request $request)
     {
         $request->validate([
-            'email' => 'required|email',
+            'email' => 'required|string',
             'password' => 'required|string',
             'portal' => 'nullable|string',
             'role' => 'nullable|string',
         ]);
 
-        $user = User::where('email', $request->email)->first();
+        $loginInput = $request->email;
+
+        $user = User::where('email', $loginInput)
+            ->orWhere('username', $loginInput)
+            ->first();
 
         if (!$user || !Hash::check($request->password, $user->password)) {
             return response()->json([
