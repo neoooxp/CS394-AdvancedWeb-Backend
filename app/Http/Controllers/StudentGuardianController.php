@@ -18,11 +18,12 @@ class StudentGuardianController extends Controller
         $perPage = $request->query('per_page', 15);
         $query = Student::query();
 
-        // Filter by Guardian ID
+        // Filter by Guardian ID or User ID
         if ($request->filled('guardian_id')) {
             $guardianId = $request->query('guardian_id');
             $query->whereHas('guardians', function ($q) use ($guardianId) {
-                $q->where('guardians.guardian_id', $guardianId);
+                $q->where('guardians.guardian_id', $guardianId)
+                  ->orWhere('guardians.user_id', $guardianId);
             });
         }
 
