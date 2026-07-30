@@ -30,6 +30,18 @@ class BusController extends Controller
             });
         }
 
+        if ($perPage === 'all' || $perPage == -1) {
+            $buses = $query->get();
+            return response()->json([
+                'data' => $buses,
+                'summary_stats' => [
+                    'total_buses' => Bus::count(),
+                    'active_buses' => Bus::whereRaw('LOWER(availability_status) = ?', ['active'])->count(),
+                    'maintenance_buses' => Bus::whereRaw('LOWER(availability_status) IN (?, ?)', ['in_service', 'maintenance'])->count(),
+                ]
+            ]);
+        }
+
         $buses = $query->paginate($perPage);
 
         $responseArray = $buses->toArray();
