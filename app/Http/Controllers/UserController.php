@@ -17,7 +17,7 @@ class UserController extends Controller
         $query = User::select(
             'user_id', 'role', 'username', 'first_name', 'last_name',
             'gender', 'email', 'status', 'phone_number', 'profile_picture', 'last_login', 'created_at'
-        );
+        )->with(['guardian.students']);
 
         if ($request->filled('role') && strtolower($request->query('role')) !== 'all users' && strtolower($request->query('role')) !== 'all') {
             $roleVal = strtolower(rtrim($request->query('role'), 's')); // driver, guardian, admin, administrator
@@ -31,7 +31,11 @@ class UserController extends Controller
                 $q->where('username', 'ILIKE', "%{$search}%")
                   ->orWhere('first_name', 'ILIKE', "%{$search}%")
                   ->orWhere('last_name', 'ILIKE', "%{$search}%")
-                  ->orWhere('email', 'ILIKE', "%{$search}%");
+                  ->orWhere('email', 'ILIKE', "%{$search}%")
+                  ->orWhereHas('guardian.students', function ($sq) use ($search) {
+                      $sq->where('first_name', 'ILIKE', "%{$search}%")
+                         ->orWhere('last_name', 'ILIKE', "%{$search}%");
+                  });
             });
         }
 
