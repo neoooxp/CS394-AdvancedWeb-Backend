@@ -42,6 +42,17 @@ class RouteController extends Controller
             });
         }
 
+        if ($perPage === 'all' || $perPage == -1) {
+            $routes = $query->with(['students', 'driver', 'buses', 'stops.student'])->get();
+            return response()->json([
+                'data' => $routes,
+                'summary_stats' => [
+                    'total_routes' => Route::count(),
+                    'assigned_routes' => Route::whereNotNull('driver_id')->count(),
+                ]
+            ]);
+        }
+
         $routes = $query->with(['students', 'driver', 'buses', 'stops.student'])->paginate($perPage);
 
         $responseArray = $routes->toArray();

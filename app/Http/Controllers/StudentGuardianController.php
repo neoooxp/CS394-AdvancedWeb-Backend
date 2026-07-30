@@ -57,6 +57,28 @@ class StudentGuardianController extends Controller
             });
         }
 
+        if ($perPage === 'all' || $perPage == -1) {
+            $students = $query->with([
+                'guardians.user',
+                'medicalRecord',
+                'stops',
+                'feeStructures'
+            ])->get();
+
+            return response()->json([
+                'data' => $students,
+                'summary_stats' => [
+                    'total_students' => Student::count(),
+                    'currently_enrolled' => Student::where(function($q) {
+                        $q->whereNull('enrollment_status')
+                          ->orWhereRaw('LOWER(enrollment_status) = ?', ['active']);
+                    })->count(),
+                    'suspended_accounts' => Student::whereRaw('LOWER(enrollment_status) IN (?, ?)', ['suspended', 'inactive'])->count(),
+                    'transport_users' => Student::has('stops')->count(),
+                ]
+            ]);
+        }
+
         $students = $query->with([
             'guardians.user',
             'medicalRecord',

@@ -18,11 +18,15 @@ class AttendanceController extends Controller
     public function getRouteManifest(Request $request, $routeId)
     {
         $perPage = $request->query('per_page', 15);
-        $stops = StudentStop::with('student')
+        $query = StudentStop::with('student')
             ->where('route_id', $routeId)
-            ->orderBy('stop_order')
-            ->paginate($perPage);
+            ->orderBy('stop_order');
 
+        if ($perPage === 'all' || $perPage == -1) {
+            return response()->json($query->get());
+        }
+
+        $stops = $query->paginate($perPage);
         return response()->json($stops);
     }
 
