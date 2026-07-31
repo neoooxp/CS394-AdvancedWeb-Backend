@@ -295,6 +295,8 @@ class BillingController extends Controller
             ]
         );
 
+        try { Cache::forget('students:version_v2'); } catch (\Throwable $e) {}
+
         return response()->json([
             'message' => 'Fee structure assigned to student successfully.'
         ], 200);
@@ -316,6 +318,8 @@ class BillingController extends Controller
         DB::table('student_fee_assignment')
             ->where('student_id', $id)
             ->delete();
+
+        try { Cache::forget('students:version_v2'); } catch (\Throwable $e) {}
 
         return response()->json([
             'message' => 'Fee structure unassigned from student successfully.'

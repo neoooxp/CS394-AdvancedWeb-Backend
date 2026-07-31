@@ -59,6 +59,12 @@ class StudentGuardianController extends Controller
                 });
             }
 
+            if ($request->filled('has_fee')) {
+                if ($request->boolean('has_fee') || $request->query('has_fee') === 'true' || $request->query('has_fee') === '1') {
+                    $query->has('feeStructures');
+                }
+            }
+
             if ($request->filled('search')) {
                 $search = $request->query('search');
                 $isPg = DB::connection()->getDriverName() === 'pgsql';
