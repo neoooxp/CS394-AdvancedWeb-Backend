@@ -323,12 +323,37 @@ class BillingController extends Controller
     }
 
     /**
-     * Return all invoices/payments for the Financial Overview ledger.
+     * Return all invoices/payments for the Financial Overview ledger with search and status filters.
      */
     public function getInvoices(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $invoices = Invoice::with(['guardian.user', 'payments'])->orderBy('created_at', 'desc')->paginate($perPage);
+        $search  = trim($request->query('search', ''));
+        $status  = trim($request->query('status', ''));
+
+        $query = Invoice::with(['guardian.user', 'payments']);
+
+        if ($status !== '' && strtolower($status) !== 'all') {
+            $query->where('status', $status);
+        }
+
+        if ($search !== '') {
+            $cleanSearch = ltrim(preg_replace('/^#?INV-/i', '', $search));
+            $query->where(function ($q) use ($search, $cleanSearch) {
+                if ($cleanSearch !== '' && is_numeric($cleanSearch)) {
+                    $q->orWhere('invoice_id', (int) $cleanSearch);
+                }
+                $q->orWhere('status', 'like', "%{$search}%")
+                  ->orWhereHas('guardian', function ($gq) use ($search) {
+                      $gq->whereHas('user', function ($uq) use ($search) {
+                          $uq->where('first_name', 'like', "%{$search}%")
+                             ->orWhere('last_name', 'like', "%{$search}%");
+                      });
+                  });
+            });
+        }
+
+        $invoices = $query->orderBy('created_at', 'desc')->paginate($perPage);
         return response()->json($invoices);
     }
 
