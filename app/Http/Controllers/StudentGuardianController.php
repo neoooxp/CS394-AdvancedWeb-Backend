@@ -17,8 +17,8 @@ class StudentGuardianController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $version = Cache::remember('students:version_v2', 86400, fn() => 2);
-        $cacheKey = 'students:list:v' . $version . ':' . md5(json_encode($request->query()));
+        $version = Cache::get('students:version_v3', 1);
+        $cacheKey = 'students:list:v3_' . $version . ':' . md5(json_encode($request->query()));
 
         $data = Cache::remember($cacheKey, 300, function () use ($request, $perPage) {
             $query = Student::query();
