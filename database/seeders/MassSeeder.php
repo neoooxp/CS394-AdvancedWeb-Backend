@@ -10,6 +10,81 @@ class MassSeeder extends Seeder
 {
     private string $hashedPassword;
 
+    private array $firstNames = [
+        'Kunthea', 'Rithy', 'Sreysour', 'Mey', 'Vanha', 'Dara', 'Sokha', 'Vicheka', 'Narith', 'Pisey',
+        'Kimsroy', 'Sokheng', 'Visal', 'Nika', 'Bopha', 'Raksmey', 'Sovann', 'Sreyleak', 'Bunthoeun', 'Narin',
+        'Sophea', 'Chenda', 'Dany', 'Sokunthea', 'Vathana', 'Sreymom', 'Kimheang', 'Virak', 'Rotha', 'Thida',
+        'Ratana', 'Monika', 'Seila', 'Sokly', 'Chanra', 'Leakhena', 'Makara', 'Malis', 'Monorom', 'Navy',
+        'Neang', 'Phally', 'Phirun', 'Pich', 'Piseth', 'Pov', 'Reaksmey', 'Sambo', 'Sambath', 'Samnang',
+        'Seang', 'Serey', 'Sinath', 'Sokhom', 'Somnang', 'Sopheap', 'Sovannara', 'Sreyneang', 'Sreyroth', 'Tevy',
+        'Theary', 'Thoeun', 'Veasna', 'Vibol', 'Viseth', 'Vy', 'Yana', 'Yon', 'Sophia', 'Liam',
+        'Emma', 'Noah', 'Olivia', 'Ethan', 'Ava', 'Mason', 'Isabella', 'William', 'Mia', 'James',
+        'Charlotte', 'Benjamin', 'Amelia', 'Lucas', 'Harper', 'Henry', 'Evelyn', 'Alexander', 'Sofia', 'Daniel',
+        'Emily', 'Michael', 'Sarah', 'David', 'Grace', 'Samuel', 'Lily', 'Aaron', 'Chloe', 'Matthew',
+        'Ella', 'Jacob', 'Zoe', 'Ryan', 'Hannah', 'Christopher', 'Abigail', 'Andrew', 'Madison', 'Jack',
+        'Scarlett', 'Joshua', 'Victoria', 'Dylan', 'Aria', 'Caleb', 'Penelope', 'Nathan', 'Nora', 'Owen',
+        'Julia', 'Adrian', 'Layla', 'Tristan', 'Ruby', 'Gabriel', 'Audrey', 'Carter', 'Hazel', 'Logan',
+        'Naomi', 'Julian', 'Stella', 'Brandon', 'Sky', 'Sokleang',
+    ];
+
+    private array $middleNames = [
+        'Sokly', 'Pich', 'Vann', 'Serey', 'Raksmey', 'Dara', 'Visal', 'Chenda', 'Sophea', 'Kimsroy',
+        'Sreynet', 'Vibol', 'Seila', 'Bopha', 'Navy', 'Phirun', 'Samnang', 'Veasna', 'Sokhom', 'Sreyleak',
+        'Makara', 'Thida', 'Ratana', 'Piseth', 'Mony', 'Reaksmey', 'Sambath', 'Virak', 'Theary', 'Sovann',
+        'Chanra', 'Sinath', 'Phally', 'Malis', 'Yana', 'Vathana', 'Sokunthea', 'Thoeun', 'Rotha', 'Dany',
+        'Seang', 'Sambo', 'Sopheap', 'Monorom', 'Leakhena', 'Vy', 'Sruoch', 'Tevy', 'Sreyneang', 'Sreyroth',
+        'Kimheang', 'Bunthoeun', 'Narin', 'Sreymom', 'Kunthea', 'Rithy', 'Sokha', 'Vicheka', 'Narith', 'Pisey',
+        'Mey', 'Vanha', 'Nika', 'Sreysour', 'Reach', 'Vitou', 'Borey', 'Kosal', 'Maly', 'Davy',
+        'Sokry', 'Chanthou', 'Kimsan', 'Channak', 'Ratanak', 'Sokphea', 'Bunroeun', 'Sokhalay', 'Sreymao', 'Chanveasna',
+    ];
+
+    private array $lastNames = [
+        'Kim', 'Hou', 'Pov', 'Sok', 'Chet', 'Vann', 'Ly', 'Heang', 'Sokhom', 'Phal',
+        'Theng', 'Rith', 'Serey', 'Chhorn', 'Mony', 'Sereypheap', 'Bun', 'Ros', 'Tep', 'Srey',
+        'Svay', 'Chhay', 'Horm', 'Kong', 'Touch', 'Srun', 'Lim', 'Hok', 'You', 'Chou',
+        'Suong', 'Chea', 'Keo', 'Phork', 'Nak', 'Chheang', 'Thay', 'Eang', 'Lor', 'Chan',
+        'Chum', 'Deth', 'Heng', 'Im', 'Kao', 'Khiev', 'Khy', 'Koy', 'Kry', 'Kun',
+        'Long', 'Mao', 'Meas', 'Mom', 'Neang', 'Orn', 'Pen', 'Phan', 'Prak', 'Rum',
+        'Sann', 'Seng', 'Sin', 'Son', 'Sot', 'Suy', 'Taing', 'Thach', 'Tho', 'Try',
+        'Um', 'Un', 'Yoeun', 'Em', 'Nov', 'Ouk', 'Sar', 'Sorn', 'Tann', 'Vong',
+        'Phoeung', 'San', 'Sav', 'Sek', 'Set', 'Sim', 'Sloeng', 'Som', 'Sour', 'Suos',
+        'Tem', 'Teng', 'Thorn', 'Tun', 'Uy', 'Ven', 'Yan', 'Yem', 'Yin', 'Yom',
+        'Youk', 'Am', 'An', 'Buth', 'Chim', 'Chhit', 'Doeun', 'Dy', 'Ek', 'Han',
+        'Hout', 'Hun', 'Ing', 'Ith', 'Ka', 'Kay', 'Khon', 'Koeun', 'Kouch', 'Kroch',
+        'Kuoch', 'Lach', 'Loeun', 'Ma', 'Meak', 'Men', 'Min', 'Nhem', 'Ngin', 'Nop',
+        'Nuon', 'Om', 'On', 'Oth', 'Pech', 'Pheap', 'Po', 'Pok', 'Pou', 'Proeung',
+        'Rin', 'Run', 'Sa', 'Sal', 'Sam', 'Sarun', 'Sauth', 'Seak', 'Sean', 'Sem',
+    ];
+
+    private array $usedUserNames = [];
+
+    private array $usedStudentNames = [];
+
+    /**
+     * Generate a first + middle + last name combination that has not been used
+     * yet, guaranteeing unique full names across the users table (and a separate
+     * namespace for students).
+     */
+    private function uniqueName(bool $isStudent = false): array
+    {
+        if ($isStudent) {
+            $tracker = &$this->usedStudentNames;
+        } else {
+            $tracker = &$this->usedUserNames;
+        }
+
+        do {
+            $first  = $this->firstNames[array_rand($this->firstNames)];
+            $middle = $this->middleNames[array_rand($this->middleNames)];
+            $last   = $this->lastNames[array_rand($this->lastNames)];
+            $full   = $first . ' ' . $middle . ' ' . $last;
+        } while (isset($tracker[$full]));
+
+        $tracker[$full] = true;
+
+        return [$first . ' ' . $middle, $last];
+    }
+
     public function run(): void
     {
         // Disable query log to prevent memory bloat during massive inserts
@@ -177,8 +252,6 @@ class MassSeeder extends Seeder
 
     private function seedUsers(int $count): void
     {
-        $firstNames = ['Sophia', 'Liam', 'Emma', 'Noah', 'Olivia', 'Ethan', 'Ava', 'Mason', 'Isabella', 'William', 'Mia', 'James', 'Charlotte', 'Benjamin', 'Amelia', 'Lucas', 'Harper', 'Henry', 'Evelyn', 'Alexander'];
-        $lastNames = ['Kim', 'Hou', 'Pov', 'Sok', 'Chet', 'Vann', 'Ly', 'Heang', 'Sokhom', 'Phal', 'Theng', 'Rith', 'Serey', 'Chhorn', 'Mony', 'Sereypheap', 'Bun', 'Ros', 'Tep', 'Srey'];
         $roles = ['admin', 'driver', 'guardian'];
         $genders = ['male', 'female'];
 
@@ -187,16 +260,16 @@ class MassSeeder extends Seeder
         $chunkSize = 2500;
 
         for ($i = 0; $i < $count; $i++) {
-            $firstName = $firstNames[array_rand($firstNames)];
-            $lastName = $lastNames[array_rand($lastNames)];
+            [$firstName, $lastName] = $this->uniqueName();
+            $nameSlug = strtolower(str_replace(' ', '', $firstName . $lastName));
 
             $users[] = [
                 'role' => $roles[array_rand($roles)],
-                'username' => strtolower($firstName) . '.' . strtolower($lastName) . $i . '_' . uniqid(),
+                'username' => $nameSlug . $i . '_' . uniqid(),
                 'first_name' => $firstName,
                 'last_name' => $lastName,
                 'gender' => $genders[array_rand($genders)],
-                'email' => strtolower($firstName) . $i . '_' . uniqid() . '@sbms.com',
+                'email' => $nameSlug . $i . '_' . uniqid() . '@sbms.com',
                 'password' => $this->hashedPassword,
                 'status' => true,
                 'phone_number' => '+855 ' . rand(10, 99) . ' ' . rand(100, 999) . ' ' . rand(100, 999),
@@ -221,8 +294,6 @@ class MassSeeder extends Seeder
 
     private function seedDrivers(int $count): void
     {
-        $firstNames = ['Kunthea', 'Rithy', 'Sreysour', 'Mey', 'Vanha', 'Dara', 'Sokha', 'Vicheka', 'Narith', 'Pisey'];
-        $lastNames = ['Svay', 'Tep', 'Chhay', 'Horm', 'Kong', 'Touch', 'Srun', 'Lim', 'Hok', 'You'];
         $statuses = ['Active', 'Active', 'Active', 'On Leave', 'Suspended'];
         $now = now();
         $chunkSize = 2500;
@@ -237,18 +308,18 @@ class MassSeeder extends Seeder
             $driverBatch = [];
 
             for ($i = 0; $i < $currentBatchSize; $i++) {
-                $firstName = $firstNames[array_rand($firstNames)];
-                $lastName = $lastNames[array_rand($lastNames)];
+                [$firstName, $lastName] = $this->uniqueName();
+                $nameSlug = strtolower(str_replace(' ', '', $firstName . $lastName));
                 $userId = $startUserId + $i;
 
                 $userBatch[] = [
                     'user_id' => $userId,
                     'role' => 'driver',
-                    'username' => 'driver_' . ($processed + $i) . '_' . uniqid(),
+                    'username' => 'driver_' . $nameSlug . '_' . uniqid(),
                     'first_name' => $firstName,
                     'last_name' => $lastName,
                     'gender' => rand(0, 1) ? 'male' : 'female',
-                    'email' => 'driver' . ($processed + $i) . '_' . uniqid() . '@sbms.com',
+                    'email' => 'driver_' . $nameSlug . '_' . uniqid() . '@sbms.com',
                     'password' => $this->hashedPassword,
                     'status' => true,
                     'phone_number' => '+855 ' . rand(10, 99) . ' ' . rand(100, 999) . ' ' . rand(100, 999),
@@ -278,8 +349,6 @@ class MassSeeder extends Seeder
 
     private function seedGuardians(int $count): void
     {
-        $firstNames = ['Sophia', 'Liam', 'Emma', 'Noah', 'Olivia', 'Ethan', 'Ava', 'Mason', 'Isabella', 'William'];
-        $lastNames = ['Kim', 'Hou', 'Pov', 'Sok', 'Chet', 'Vann', 'Ly', 'Heang', 'Sokhom', 'Phal'];
         $areas = ['BKK1', 'Toul Kork', 'Chamkar Mon', 'Boeung Keng Kang', 'Chroy Changvar', 'Meanchey', 'Kamp Cham', 'Ta Khmao', 'Khan Sensok', 'Khan Por Senchey'];
         $now = now();
         $chunkSize = 2500;
@@ -294,18 +363,18 @@ class MassSeeder extends Seeder
             $guardianBatch = [];
 
             for ($i = 0; $i < $currentBatchSize; $i++) {
-                $firstName = $firstNames[array_rand($firstNames)];
-                $lastName = $lastNames[array_rand($lastNames)];
+                [$firstName, $lastName] = $this->uniqueName();
+                $nameSlug = strtolower(str_replace(' ', '', $firstName . $lastName));
                 $userId = $startUserId + $i;
 
                 $userBatch[] = [
                     'user_id' => $userId,
                     'role' => 'guardian',
-                    'username' => 'guardian_' . ($processed + $i) . '_' . uniqid(),
+                    'username' => 'guardian_' . $nameSlug . '_' . uniqid(),
                     'first_name' => $firstName,
                     'last_name' => $lastName,
                     'gender' => rand(0, 1) ? 'male' : 'female',
-                    'email' => 'guardian' . ($processed + $i) . '_' . uniqid() . '@sbms.com',
+                    'email' => 'guardian_' . $nameSlug . '_' . uniqid() . '@sbms.com',
                     'password' => $this->hashedPassword,
                     'status' => true,
                     'phone_number' => '+855 ' . rand(10, 99) . ' ' . rand(100, 999) . ' ' . rand(100, 999),
@@ -333,8 +402,6 @@ class MassSeeder extends Seeder
 
     private function seedStudents(int $count): void
     {
-        $firstNames = ['Kunthea', 'Rithy', 'Sreysour', 'Mey', 'Vanha', 'Dara', 'Sokha', 'Vicheka', 'Narith', 'Pisey', 'Kimsroy', 'Sokheng', 'Visal', 'Nika', 'Bopha', 'Raksmey', 'Sovann', 'Sreyleak', 'Bunthoeun', 'Narin'];
-        $lastNames = ['Svay', 'Tep', 'Chhay', 'Horm', 'Kong', 'Touch', 'Srun', 'Lim', 'Hok', 'You', 'Chou', 'Suong', 'Chea', 'Keo', 'Phork', 'Nak', 'Chheang', 'Thay', 'Eang', 'Lor'];
         $grades = ['Nursery', 'Kindergarten 1', 'Kindergarten 2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
         $statuses = ['Active', 'Active', 'Active', 'Active', 'Inactive', 'Graduated', 'Suspended'];
 
@@ -343,8 +410,7 @@ class MassSeeder extends Seeder
         $chunkSize = 2500;
 
         for ($i = 0; $i < $count; $i++) {
-            $firstName = $firstNames[array_rand($firstNames)];
-            $lastName = $lastNames[array_rand($lastNames)];
+            [$firstName, $lastName] = $this->uniqueName(true);
 
             $students[] = [
                 'first_name' => $firstName,
