@@ -332,6 +332,7 @@ class StudentGuardianController extends Controller
     private function invalidateStudentCache()
     {
         Cache::forget('students:summary');
+        Cache::increment('students:version_v2');
         Cache::increment('students:version');
     }
 }

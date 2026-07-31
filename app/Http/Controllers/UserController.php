@@ -199,6 +199,7 @@ class UserController extends Controller
     private function invalidateUserCache()
     {
         Cache::forget('users:summary');
+        Cache::increment('users:version_v2');
         Cache::increment('users:version');
     }
 }
