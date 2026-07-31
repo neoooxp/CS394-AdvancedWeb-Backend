@@ -19,7 +19,11 @@ class BusController extends Controller
         $cacheKey = 'buses:list:v' . $version . ':' . md5(json_encode($request->query()));
 
         $data = Cache::remember($cacheKey, 300, function () use ($request, $perPage) {
-            $query = Bus::with(['documents', 'routes.driver', 'assignments.driver.user']);
+            if ($perPage === 'all' || $perPage == -1) {
+                $query = Bus::with('documents');
+            } else {
+                $query = Bus::with(['documents', 'routes.driver', 'assignments.driver.user']);
+            }
 
             if ($request->filled('status') && strtolower($request->query('status')) !== 'all') {
                 $query->whereRaw('LOWER(availability_status) = ?', [strtolower($request->query('status'))]);
