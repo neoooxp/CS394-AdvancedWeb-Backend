@@ -74,45 +74,35 @@ class BillingController extends Controller
         try {
             $now     = Carbon::now();
             $dueDate = $now->copy()->endOfMonth();
-            $created = 0;
+            $dateStr = $now->toDateString();
+            $dueStr  = $dueDate->toDateString();
+            $nowStr  = $now->toDateTimeString();
 
-            DB::transaction(function () use ($now, $dueDate, &$created) {
-                $assignments = DB::table('student_fee_assignment')
-                    ->join('students', 'student_fee_assignment.student_id', '=', 'students.student_id')
-                    ->join('fee_structure', 'student_fee_assignment.fee_structure_id', '=', 'fee_structure.fee_structure_id')
-                    ->join('student_guardians', 'students.student_id', '=', 'student_guardians.student_id')
-                    ->select(
-                        'student_guardians.guardian_id',
-                        DB::raw('SUM(fee_structure.base_amount * (1 - fee_structure.discount_percentage / 100)) as total_amount')
-                    )
-                    ->groupBy('student_guardians.guardian_id')
-                    ->get();
-
-                if ($assignments->isEmpty()) {
-                    $created = 0;
-                    return;
-                }
-
-                $nowStr  = $now->toDateTimeString();
-                $dateStr = $now->toDateString();
-                $dueStr  = $dueDate->toDateString();
-
-                $insertData = $assignments->map(fn($a) => [
-                    'guardian_id'  => $a->guardian_id,
-                    'invoice_date' => $dateStr,
-                    'due_date'     => $dueStr,
-                    'total_amount' => round((float) $a->total_amount, 2),
-                    'status'       => 'Unpaid',
-                    'created_at'   => $nowStr,
-                    'updated_at'   => $nowStr,
-                ])->toArray();
-
-                Invoice::insert($insertData);
-                $created = count($insertData);
+            // Compute the per-guardian totals and insert them directly from the
+            // database (INSERT ... SELECT) so we never materialise the full
+            // result set in PHP memory. Guardians that already have an invoice
+            // for this invoice date are skipped to avoid duplicate monthly bills.
+            $created = DB::transaction(function () use ($dateStr, $dueStr, $nowStr) {
+                return DB::affectingStatement(
+                    "INSERT INTO invoices
+                        (guardian_id, invoice_date, due_date, total_amount, status, created_at, updated_at)
+                     SELECT sg.guardian_id, ?, ?,
+                            ROUND(SUM(fs.base_amount * (1 - fs.discount_percentage / 100)), 2),
+                            'Unpaid', ?, ?
+                     FROM student_fee_assignment sfa
+                     JOIN students s ON s.student_id = sfa.student_id
+                     JOIN fee_structure fs ON fs.fee_structure_id = sfa.fee_structure_id
+                     JOIN student_guardians sg ON s.student_id = sg.student_id
+                     WHERE sg.guardian_id NOT IN (
+                         SELECT i.guardian_id FROM invoices i WHERE i.invoice_date = ?
+                     )
+                     GROUP BY sg.guardian_id",
+                    [$dateStr, $dueStr, $nowStr, $nowStr, $dateStr]
+                );
             });
 
             return response()->json([
-                'message'         => 'Monthly invoices generated successfully.',
+                'message'          => 'Monthly invoices generated successfully.',
                 'invoices_created' => $created
             ]);
         } catch (\Throwable $e) {
