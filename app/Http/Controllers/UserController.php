@@ -15,7 +15,7 @@ class UserController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $version = Cache::remember('users:version', 86400, fn() => 1);
+        $version = Cache::remember('users:version_v2', 86400, fn() => 2);
         $cacheKey = 'users:list:v' . $version . ':' . md5(json_encode($request->query()));
 
         $data = Cache::remember($cacheKey, 300, function () use ($request, $perPage) {
@@ -40,16 +40,37 @@ class UserController extends Controller
             }
 
             if ($request->filled('search')) {
-                $search = $request->query('search');
-                $query->where(function ($q) use ($search) {
-                    $q->where('username', 'ILIKE', "%{$search}%")
-                      ->orWhere('first_name', 'ILIKE', "%{$search}%")
-                      ->orWhere('last_name', 'ILIKE', "%{$search}%")
-                      ->orWhere('email', 'ILIKE', "%{$search}%")
-                      ->orWhereHas('guardian.students', function ($sq) use ($search) {
-                          $sq->where('first_name', 'ILIKE', "%{$search}%")
-                             ->orWhere('last_name', 'ILIKE', "%{$search}%");
+                $search = trim($request->query('search'));
+                $isPg = DB::connection()->getDriverName() === 'pgsql';
+                $likeOp = $isPg ? 'ILIKE' : 'LIKE';
+                $concat = $isPg ? "first_name || ' ' || last_name" : "CONCAT(first_name, ' ', last_name)";
+
+                $tokens = array_filter(explode(' ', $search));
+
+                $query->where(function ($q) use ($search, $tokens, $likeOp, $concat) {
+                    $q->where('username', $likeOp, "%{$search}%")
+                      ->orWhere('first_name', $likeOp, "%{$search}%")
+                      ->orWhere('last_name', $likeOp, "%{$search}%")
+                      ->orWhere('email', $likeOp, "%{$search}%")
+                      ->orWhere('phone_number', $likeOp, "%{$search}%")
+                      ->orWhere(DB::raw($concat), $likeOp, "%{$search}%")
+                      ->orWhereHas('guardian.students', function ($sq) use ($search, $likeOp) {
+                          $sq->where('first_name', $likeOp, "%{$search}%")
+                             ->orWhere('last_name', $likeOp, "%{$search}%");
                       });
+
+                    if (count($tokens) > 1) {
+                        $q->orWhere(function ($tq) use ($tokens, $likeOp) {
+                            foreach ($tokens as $token) {
+                                $tq->where(function ($sub) use ($token, $likeOp) {
+                                    $sub->where('first_name', $likeOp, "%{$token}%")
+                                       ->orWhere('last_name', $likeOp, "%{$token}%")
+                                       ->orWhere('username', $likeOp, "%{$token}%")
+                                       ->orWhere('email', $likeOp, "%{$token}%");
+                                });
+                            }
+                        });
+                    }
                 });
             }
 
