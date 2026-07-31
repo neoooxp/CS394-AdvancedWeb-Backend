@@ -130,7 +130,6 @@ class MassSeeder extends Seeder
             'bus_routes'             => 30_000,  // Bus to route links
             'driver_bus_assignments' => 20_000,  // Driver to bus assignments
             'driver_schedules'       => 20_000,  // Driver shift schedules
-            'student_fee_assignment' => 100_000, // Student fee tier assignments
             'daily_attendance'       => 200_000,
             'invoices'               => 100_000,
             'payments'               => 50_000,
@@ -185,10 +184,6 @@ class MassSeeder extends Seeder
                     break;
                 case 'driver_schedules':
                     $this->seedDriverSchedules($count);
-                    $totalDbRowsInserted += $count;
-                    break;
-                case 'student_fee_assignment':
-                    $this->seedStudentFeeAssignments($count);
                     $totalDbRowsInserted += $count;
                     break;
                 case 'daily_attendance':
@@ -294,7 +289,7 @@ class MassSeeder extends Seeder
 
     private function seedDrivers(int $count): void
     {
-        $statuses = ['Active', 'Active', 'Active', 'On Leave', 'Suspended'];
+        $statuses = ['Active', 'Active', 'Active', 'On Leave'];
         $now = now();
         $chunkSize = 2500;
 
@@ -403,7 +398,7 @@ class MassSeeder extends Seeder
     private function seedStudents(int $count): void
     {
         $grades = ['Nursery', 'Kindergarten 1', 'Kindergarten 2', 'Grade 1', 'Grade 2', 'Grade 3', 'Grade 4', 'Grade 5', 'Grade 6', 'Grade 7', 'Grade 8', 'Grade 9', 'Grade 10', 'Grade 11', 'Grade 12'];
-        $statuses = ['Active', 'Active', 'Active', 'Active', 'Inactive', 'Graduated', 'Suspended'];
+        $statuses = ['Active', 'Active', 'Active', 'Active', 'Inactive', 'Graduated'];
 
         $students = [];
         $now = now();
@@ -722,49 +717,6 @@ class MassSeeder extends Seeder
         if (!empty($schedules)) {
             DB::transaction(function () use (&$schedules) {
                 DB::table('driver_schedules')->insert($schedules);
-            });
-        }
-    }
-
-    private function seedStudentFeeAssignments(int $count): void
-    {
-        $feeIds = DB::table('fee_structure')
-            ->whereNotIn('fee_name', ['Late Fee Penalty', 'Field Trip (Hourly)'])
-            ->pluck('fee_structure_id')
-            ->toArray();
-        $studentIds = DB::table('students')->pluck('student_id')->toArray();
-        if (empty($feeIds) || empty($studentIds)) return;
-
-        $sCount = count($studentIds);
-        $fCount = count($feeIds);
-        $chunkSize = 2500;
-        $assignments = [];
-        $assignedPairs = [];
-
-        for ($i = 0; $i < $count; $i++) {
-            $studentId = $studentIds[$i % $sCount];
-            $feeId = $feeIds[rand(0, $fCount - 1)];
-            $key = "{$studentId}_{$feeId}";
-
-            if (isset($assignedPairs[$key])) continue;
-            $assignedPairs[$key] = true;
-
-            $assignments[] = [
-                'student_id' => $studentId,
-                'fee_structure_id' => $feeId,
-            ];
-
-            if (count($assignments) >= $chunkSize) {
-                DB::transaction(function () use (&$assignments) {
-                    DB::table('student_fee_assignment')->insertOrIgnore($assignments);
-                });
-                $assignments = [];
-            }
-        }
-
-        if (!empty($assignments)) {
-            DB::transaction(function () use (&$assignments) {
-                DB::table('student_fee_assignment')->insertOrIgnore($assignments);
             });
         }
     }
