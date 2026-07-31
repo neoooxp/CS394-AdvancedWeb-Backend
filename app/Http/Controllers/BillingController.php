@@ -307,10 +307,18 @@ class BillingController extends Controller
     /**
      * Unassign / remove a fee structure from a student.
      */
-    public function unassignFeeStructure($studentId)
+    public function unassignFeeStructure(Request $request, $studentId = null)
     {
+        $id = $studentId ?? $request->input('student_id') ?? $request->query('student_id');
+
+        if (!$id) {
+            return response()->json([
+                'message' => 'Student ID is required.'
+            ], 422);
+        }
+
         DB::table('student_fee_assignment')
-            ->where('student_id', $studentId)
+            ->where('student_id', $id)
             ->delete();
 
         return response()->json([

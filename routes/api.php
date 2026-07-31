@@ -116,7 +116,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/billing/fee-structures', [BillingController::class, 'createFeeStructure']);
     Route::put('/billing/fee-structures/{id}', [BillingController::class, 'updateFeeStructure']);
     Route::post('/billing/assign-fee', [BillingController::class, 'assignFeeStructure']);
-    Route::delete('/billing/unassign-fee/{studentId}', [BillingController::class, 'unassignFeeStructure']);
+    Route::match(['DELETE', 'POST', 'GET'], '/billing/unassign-fee/{studentId?}', [BillingController::class, 'unassignFeeStructure']);
+    Route::match(['DELETE', 'POST'], '/billing/unassign-fee', [BillingController::class, 'unassignFeeStructure']);
     Route::get('/billing/invoices', [BillingController::class, 'getInvoices']);
     Route::get('/billing/invoices/{id}', [BillingController::class, 'getInvoice']);
     Route::patch('/billing/invoices/{id}/status', [BillingController::class, 'updateInvoiceStatus']);
