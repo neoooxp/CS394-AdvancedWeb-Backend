@@ -30,6 +30,15 @@ class UserController extends Controller
                 $query->where('role', $roleVal);
             }
 
+            if ($request->filled('status') && strtolower($request->query('status')) !== 'all') {
+                $statusVal = strtolower($request->query('status'));
+                if ($statusVal === 'active') {
+                    $query->where('status', true);
+                } elseif ($statusVal === 'suspended' || $statusVal === 'disabled' || $statusVal === 'inactive') {
+                    $query->where('status', false);
+                }
+            }
+
             if ($request->filled('search')) {
                 $search = $request->query('search');
                 $query->where(function ($q) use ($search) {
@@ -131,12 +140,21 @@ class UserController extends Controller
     public function toggleStatus($id)
     {
         $user = User::findOrFail($id);
-        $user->update(['status' => !$user->status]);
+        $newStatus = !$user->status;
+        $user->update(['status' => $newStatus]);
+
+        if (!$newStatus) {
+            // Revoke all active Sanctum tokens for suspended user
+            $user->tokens()->delete();
+            Cache::put("user:suspended:{$user->user_id}", true, 86400);
+        } else {
+            Cache::forget("user:suspended:{$user->user_id}");
+        }
 
         $this->invalidateUserCache();
 
         return response()->json([
-            'message' => 'User status toggled successfully.',
+            'message' => $newStatus ? 'User account activated successfully.' : 'User account suspended successfully.',
             'status'  => $user->status
         ]);
     }

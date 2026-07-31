@@ -35,6 +35,17 @@ class StudentGuardianController extends Controller
                 $query->where('grade_level', $request->query('grade'));
             }
 
+            if ($request->filled('status') && strtolower($request->query('status')) !== 'all') {
+                $statusVal = strtolower($request->query('status'));
+                if ($statusVal === 'suspended') {
+                    $query->whereRaw('LOWER(enrollment_status) IN (?, ?)', ['suspended', 'inactive']);
+                } elseif ($statusVal === 'enrolled' || $statusVal === 'active') {
+                    $query->whereRaw('LOWER(enrollment_status) NOT IN (?, ?)', ['suspended', 'inactive']);
+                } else {
+                    $query->where('enrollment_status', $request->query('status'));
+                }
+            }
+
             if ($request->filled('route_id') && $request->query('route_id') !== 'All') {
                 $routeVal = $request->query('route_id');
                 $query->whereHas('stops', function ($q) use ($routeVal) {
@@ -275,6 +286,27 @@ class StudentGuardianController extends Controller
             'message'    => 'Guardian assigned to student successfully.',
             'assignment' => $assignment
         ], 201);
+    }
+
+    /**
+     * Toggle the enrollment/suspension status of a student.
+     */
+    public function toggleStatus($id)
+    {
+        $student = Student::findOrFail($id);
+        $currentStatus = strtolower($student->enrollment_status ?? 'enrolled');
+        
+        $newStatus = ($currentStatus === 'suspended') ? 'Enrolled' : 'Suspended';
+        $student->update(['enrollment_status' => $newStatus]);
+
+        $this->invalidateStudentCache();
+        Cache::increment('routes:version');
+
+        return response()->json([
+            'message'           => "Student status updated to '{$newStatus}'.",
+            'enrollment_status' => $newStatus,
+            'student'           => $student
+        ]);
     }
 
     /**

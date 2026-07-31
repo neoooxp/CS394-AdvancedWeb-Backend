@@ -64,6 +64,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::put('/students/{id}', [StudentGuardianController::class, 'update']);
     Route::delete('/students/{id}', [StudentGuardianController::class, 'destroy']);
     Route::post('/students/assign-guardian', [StudentGuardianController::class, 'assignGuardian']);
+    Route::patch('/students/{id}/toggle-status', [StudentGuardianController::class, 'toggleStatus']);
 
     // -------------------------------------------------------------------
     // 🚌 Domain C: Fleet Infrastructure (PostgreSQL)
