@@ -125,6 +125,29 @@ class BusController extends Controller
     }
 
     /**
+     * Toggle a bus between Available and Maintenance status.
+     */
+    public function toggleStatus($id)
+    {
+        $bus = Bus::findOrFail($id);
+
+        $current = strtolower($bus->availability_status ?? 'available');
+        $newStatus = in_array($current, ['available', 'active', 'in_service'])
+            ? 'Maintenance'
+            : 'Available';
+
+        $bus->update(['availability_status' => $newStatus]);
+
+        $this->invalidateBusCache();
+
+        return response()->json([
+            'message'             => "Bus status updated to '{$newStatus}'.",
+            'availability_status' => $bus->availability_status,
+            'bus'                 => $bus,
+        ]);
+    }
+
+    /**
      * Map time-sensitive operational document criteria to a bus.
      */
     public function storeDocument(Request $request, $busId)

@@ -72,6 +72,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::get('/buses', [BusController::class, 'index']);
     Route::post('/buses', [BusController::class, 'store']);
     Route::put('/buses/{id}', [BusController::class, 'update']);
+    Route::patch('/buses/{id}/toggle-status', [BusController::class, 'toggleStatus']);
     Route::post('/buses/{id}/documents', [BusController::class, 'storeDocument']);
 
     // -------------------------------------------------------------------
