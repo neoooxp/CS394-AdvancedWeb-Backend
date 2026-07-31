@@ -331,7 +331,7 @@ class BillingController extends Controller
         $search  = trim($request->query('search', ''));
         $status  = trim($request->query('status', ''));
 
-        $query = Invoice::with(['guardian.user', 'payments']);
+        $query = Invoice::with(['guardian.user', 'guardian.students', 'payments']);
 
         if ($status !== '' && strtolower($status) !== 'all') {
             $query->where('status', $status);
@@ -347,6 +347,10 @@ class BillingController extends Controller
                   ->orWhereHas('guardian', function ($gq) use ($search) {
                       $gq->whereHas('user', function ($uq) use ($search) {
                           $uq->where('first_name', 'like', "%{$search}%")
+                             ->orWhere('last_name', 'like', "%{$search}%");
+                      })
+                      ->orWhereHas('students', function ($sq) use ($search) {
+                          $sq->where('first_name', 'like', "%{$search}%")
                              ->orWhere('last_name', 'like', "%{$search}%");
                       });
                   });
