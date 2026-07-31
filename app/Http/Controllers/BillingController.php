@@ -264,8 +264,6 @@ class BillingController extends Controller
             if (FeeStructure::count() === 0) {
                 FeeStructure::create(['fee_name' => 'Standard Route (Monthly)', 'base_amount' => 150.00, 'discount_percentage' => 0.00]);
                 FeeStructure::create(['fee_name' => 'Special Ed (Monthly)', 'base_amount' => 220.00, 'discount_percentage' => 0.00]);
-                FeeStructure::create(['fee_name' => 'Field Trip (Hourly)', 'base_amount' => 45.00, 'discount_percentage' => 0.00]);
-                FeeStructure::create(['fee_name' => 'Late Fee Penalty', 'base_amount' => 25.00, 'discount_percentage' => 0.00]);
             }
             return FeeStructure::paginate($perPage);
         });
@@ -281,8 +279,6 @@ class BillingController extends Controller
         if (FeeStructure::count() === 0) {
             FeeStructure::create(['fee_name' => 'Standard Route (Monthly)', 'base_amount' => 150.00, 'discount_percentage' => 0.00]);
             FeeStructure::create(['fee_name' => 'Special Ed (Monthly)', 'base_amount' => 220.00, 'discount_percentage' => 0.00]);
-            FeeStructure::create(['fee_name' => 'Field Trip (Hourly)', 'base_amount' => 45.00, 'discount_percentage' => 0.00]);
-            FeeStructure::create(['fee_name' => 'Late Fee Penalty', 'base_amount' => 25.00, 'discount_percentage' => 0.00]);
         }
 
         $request->validate([

@@ -216,37 +216,16 @@ class DatabaseSeeder extends Seeder
             'updated_at'          => now(),
         ], 'fee_structure_id');
 
-        $feeId3 = DB::table('fee_structure')->insertGetId([
-            'fee_name'            => 'Field Trip (Hourly)',
-            'base_amount'         => 45.00,
-            'discount_percentage' => 0.00,
-            'created_at'          => now(),
-            'updated_at'          => now(),
-        ], 'fee_structure_id');
-
-        $feeId4 = DB::table('fee_structure')->insertGetId([
-            'fee_name'            => 'Late Fee Penalty',
-            'base_amount'         => 25.00,
-            'discount_percentage' => 0.00,
-            'created_at'          => now(),
-            'updated_at'          => now(),
-        ], 'fee_structure_id');
-
         DB::table('student_fee_assignment')->insert([
             'student_id'       => $studentId,
             'fee_structure_id' => $feeId1,
-        ]);
-
-        DB::table('student_fee_assignment')->insert([
-            'student_id'       => $studentId,
-            'fee_structure_id' => $feeId3,
         ]);
 
         $invoiceId = DB::table('invoices')->insertGetId([
             'guardian_id'  => $guardianId,
             'invoice_date' => now()->startOfMonth()->toDateString(),
             'due_date'     => now()->endOfMonth()->toDateString(),
-            'total_amount' => 195.00,
+            'total_amount' => 150.00,
             'status'       => 'Unpaid',
             'created_at'   => now(),
             'updated_at'   => now(),

@@ -144,8 +144,6 @@ class MassSeeder extends Seeder
             DB::table('fee_structure')->insert([
                 ['fee_name' => 'Standard Route (Monthly)', 'base_amount' => 150.00, 'discount_percentage' => 0.00, 'created_at' => now(), 'updated_at' => now()],
                 ['fee_name' => 'Special Ed (Monthly)', 'base_amount' => 220.00, 'discount_percentage' => 0.00, 'created_at' => now(), 'updated_at' => now()],
-                ['fee_name' => 'Field Trip (Hourly)', 'base_amount' => 45.00, 'discount_percentage' => 0.00, 'created_at' => now(), 'updated_at' => now()],
-                ['fee_name' => 'Late Fee Penalty', 'base_amount' => 25.00, 'discount_percentage' => 0.00, 'created_at' => now(), 'updated_at' => now()],
             ]);
         }
     }
@@ -664,7 +662,10 @@ class MassSeeder extends Seeder
 
     private function seedStudentFeeAssignments(int $count): void
     {
-        $feeIds = DB::table('fee_structure')->pluck('fee_structure_id')->toArray();
+        $feeIds = DB::table('fee_structure')
+            ->whereNotIn('fee_name', ['Late Fee Penalty', 'Field Trip (Hourly)'])
+            ->pluck('fee_structure_id')
+            ->toArray();
         $studentIds = DB::table('students')->pluck('student_id')->toArray();
         if (empty($feeIds) || empty($studentIds)) return;
 
