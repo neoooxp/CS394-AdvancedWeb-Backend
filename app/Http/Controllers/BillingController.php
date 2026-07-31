@@ -315,6 +315,20 @@ class BillingController extends Controller
     }
 
     /**
+     * Unassign / remove a fee structure from a student.
+     */
+    public function unassignFeeStructure($studentId)
+    {
+        DB::table('student_fee_assignment')
+            ->where('student_id', $studentId)
+            ->delete();
+
+        return response()->json([
+            'message' => 'Fee structure unassigned from student successfully.'
+        ], 200);
+    }
+
+    /**
      * Return all invoices/payments for the Financial Overview ledger.
      */
     public function getInvoices(Request $request)
