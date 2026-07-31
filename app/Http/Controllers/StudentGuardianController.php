@@ -17,7 +17,7 @@ class StudentGuardianController extends Controller
     public function index(Request $request)
     {
         $perPage = $request->query('per_page', 15);
-        $version = Cache::remember('students:version', 86400, fn() => 1);
+        $version = Cache::remember('students:version_v2', 86400, fn() => 2);
         $cacheKey = 'students:list:v' . $version . ':' . md5(json_encode($request->query()));
 
         $data = Cache::remember($cacheKey, 300, function () use ($request, $perPage) {
@@ -50,11 +50,22 @@ class StudentGuardianController extends Controller
 
             if ($request->filled('search')) {
                 $search = $request->query('search');
-                $query->where(function ($q) use ($search) {
-                    $q->where('first_name', 'ILIKE', "%{$search}%")
-                      ->orWhere('last_name', 'ILIKE', "%{$search}%")
-                      ->orWhere('student_code', 'ILIKE', "%{$search}%")
-                      ->orWhere(DB::raw("first_name || ' ' || last_name"), 'ILIKE', "%{$search}%");
+                $isPg = DB::connection()->getDriverName() === 'pgsql';
+                $likeOp = $isPg ? 'ILIKE' : 'LIKE';
+                $concat = $isPg ? "first_name || ' ' || last_name" : "CONCAT(first_name, ' ', last_name)";
+
+                $query->where(function ($q) use ($search, $likeOp, $concat) {
+                    $q->where('first_name', $likeOp, "%{$search}%")
+                      ->orWhere('last_name', $likeOp, "%{$search}%")
+                      ->orWhere('student_code', $likeOp, "%{$search}%")
+                      ->orWhere(DB::raw($concat), $likeOp, "%{$search}%")
+                      ->orWhereHas('guardians', function ($gq) use ($search, $likeOp, $concat) {
+                          $gq->whereHas('user', function ($uq) use ($search, $likeOp, $concat) {
+                              $uq->where('first_name', $likeOp, "%{$search}%")
+                                 ->orWhere('last_name', $likeOp, "%{$search}%")
+                                 ->orWhere(DB::raw($concat), $likeOp, "%{$search}%");
+                          });
+                      });
                 });
             }
 
